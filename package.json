@@ -1,0 +1,28 @@
+{
+  "name": "hyscratch",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:all": "powershell -ExecutionPolicy Bypass -File ./scripts/start-local-stack.ps1",
+    "dev:all:skip-tests": "powershell -ExecutionPolicy Bypass -File ./scripts/start-local-stack.ps1 -SkipTests",
+    "dev:web": "npm run dev --workspace @hyscratch/web",
+    "dev:api": "npm run dev --workspace @hyscratch/api",
+    "lint": "eslint .",
+    "format": "prettier --check .",
+    "format:write": "prettier --write .",
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.11.1",
+    "eslint": "^9.11.1",
+    "globals": "^15.9.0",
+    "prettier": "^3.3.3",
+    "typescript-eslint": "^8.6.0"
+  }
+}
