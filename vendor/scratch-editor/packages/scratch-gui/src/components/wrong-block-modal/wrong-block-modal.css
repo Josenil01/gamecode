@@ -1,0 +1,141 @@
+.overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.container {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.22);
+    width: 580px;
+    max-width: 95vw;
+    padding: 0;
+    outline: none;
+    overflow: hidden;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+.header {
+    background: #ff8c1a;
+    padding: 1.2rem 1.6rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.title {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #1f2937;
+}
+
+.icon {
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+}
+
+.body {
+    padding: 1.4rem 1.6rem 1rem;
+}
+
+.message {
+    font-size: 1.05rem;
+    color: #374151;
+    line-height: 1.6;
+    margin: 0 0 1.4rem;
+}
+
+.comparison {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.blockTag {
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    flex: 1;
+    min-width: 160px;
+}
+
+.wrong {
+    background: #fee2e2;
+    border: 1.5px solid #fca5a5;
+}
+
+.suggested {
+    background: #dcfce7;
+    border: 1.5px solid #86efac;
+}
+
+.blockTagLabel {
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #6b7280;
+}
+
+.blockName {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.arrow {
+    font-size: 2rem;
+    color: #9ca3af;
+    flex-shrink: 0;
+}
+
+.footer {
+    padding: 1rem 1.6rem 1.25rem;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.okButton {
+    background: #ff8c1a;
+    color: #1f2937;
+    border: none;
+    border-radius: 12px;
+    padding: 0.7rem 2rem;
+    font-size: 1.05rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.okButton:hover {
+    background: #f97316;
+}
+
+/* [SVG-B] Container do preview SVG clonado do workspace */
+.svgPreview {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
+    overflow: visible;
+    /* pointer-events: none evita que cliques no SVG do bloco interfiram com o modal */
+    pointer-events: none;
+}
+
+/* Normaliza o SVG inline — o bloco renderiza em escala 1:1 do workspace,
+   que pode ser grande. Scale-down reduz sem distorcer. */
+.svgPreview svg {
+    max-width: 100%;
+    max-height: 120px;
+    object-fit: contain;
+}
