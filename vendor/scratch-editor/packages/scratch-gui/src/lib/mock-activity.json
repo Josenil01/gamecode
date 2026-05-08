@@ -1,54 +1,45 @@
 {
-  "activityId": "demo-activity-001",
-  "title": "Fazendo o Gato se Mover",
+  "activityId": "Aula  1 - 7º Ano",
+  "title": "Anime o teu Nome",
   "steps": [
     {
       "stepId": 1,
-      "videoUrl": "https://www.youtube.com/embed/dQw4w9WgXcQ",
-      "instructions": "Vamos fazer o Gato andar! Nesta etapa você vai usar o bloco 'mova 10 passos' para que o Gato se mova quando o projeto começar.",
-      "allowedCategories": [
-        "motion",
-        "events"
-      ],
-      "allowedOpcodes": [
-        "event_whenflagclicked",
-        "motion_movesteps"
-      ],
-      "requiredOpcodes": [
-        "event_whenflagclicked",
-        "motion_movesteps"
-      ],
+      "videoUrl": "https://youtu.be/s-tPZ0gHe50",
+      "instructions": "Chegou a hora de dar vida às letras! No Scratch, cada letra do teu nome será um ator com superpoderes independentes. Prepara-te para uma explosão de cores , giros  e efeitos especiais!",
+      "allowedCategories": [],
+      "allowedOpcodes": [],
+      "requiredOpcodes": [],
       "targetSpriteId": "Gato",
-      "previewBlocks": [
-        {
-          "opcode": "event_whenflagclicked",
-          "label": "quando ⚑ for clicado"
-        },
-        {
-          "opcode": "motion_movesteps",
-          "label": "mova 10 passos"
-        }
-      ]
+      "previewBlocks": []
     },
     {
       "stepId": 2,
       "videoUrl": null,
-      "instructions": "Ótimo trabalho! Agora vamos fazer o Gato falar quando chegar no outro lado da tela. Use o bloco 'diga Olá! por 2 segundos' depois do bloco de mover.",
+      "instructions": "Começe removendo o gato!\nColoque  a primeira letra do seu nome!",
+      "allowedCategories": [],
+      "allowedOpcodes": [],
+      "requiredOpcodes": [],
+      "targetSpriteId": "Gato",
+      "previewBlocks": []
+    },
+    {
+      "stepId": 3,
+      "videoUrl": null,
+      "instructions": "Queremos que a letra dê um giro completo (360 graus) de forma suave quando a bandeira for clicada. Para isso faça o calculo 360/15, para descobrir quantas vezes o comando repita precisa ser executado.   Nessa etapa você vai precisar dos seguintes blocos. ",
       "allowedCategories": [
-        "motion",
         "events",
-        "looks"
+        "control",
+        "motion"
       ],
       "allowedOpcodes": [
         "event_whenflagclicked",
-        "motion_movesteps",
-        "motion_turnright",
-        "looks_sayforsecs"
+        "control_repeat",
+        "motion_turnright"
       ],
       "requiredOpcodes": [
         "event_whenflagclicked",
-        "motion_movesteps",
-        "looks_sayforsecs"
+        "control_repeat",
+        "motion_turnright"
       ],
       "targetSpriteId": "Gato",
       "previewBlocks": [
@@ -57,12 +48,46 @@
           "label": "quando ⚑ for clicado"
         },
         {
-          "opcode": "motion_movesteps",
-          "label": "mova 10 passos"
+          "opcode": "control_repeat",
+          "label": "repita 10"
         },
         {
-          "opcode": "looks_sayforsecs",
-          "label": "diga Olá! por 2 segundos"
+          "opcode": "motion_turnright",
+          "label": "gire ↻ 15 graus"
+        }
+      ]
+    },
+    {
+      "stepId": 4,
+      "videoUrl": null,
+      "instructions": "Agora adicione a segunda letra do seu nome. A letra deve crescer assustadoramente quando bandeira for clicada  e voltar ao normal logo a seguir e repetir esse comportamento infinitamente.  ",
+      "allowedCategories": [
+        "looks",
+        "control"
+      ],
+      "allowedOpcodes": [
+        "looks_setsizeto",
+        "control_wait",
+        "control_forever"
+      ],
+      "requiredOpcodes": [
+        "looks_setsizeto",
+        "control_wait",
+        "control_forever"
+      ],
+      "targetSpriteId": "Gato",
+      "previewBlocks": [
+        {
+          "opcode": "looks_setsizeto",
+          "label": "mude tamanho para 100%"
+        },
+        {
+          "opcode": "control_wait",
+          "label": "espere 1 segundos"
+        },
+        {
+          "opcode": "control_forever",
+          "label": "sempre"
         }
       ]
     }
