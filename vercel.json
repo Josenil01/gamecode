@@ -1,0 +1,8 @@
+{
+  "outputDirectory": "vendor/scratch-editor/packages/scratch-gui/build",
+  "buildCommand": "",
+  "installCommand": "",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
