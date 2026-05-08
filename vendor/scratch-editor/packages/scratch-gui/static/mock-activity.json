@@ -6,6 +6,7 @@
       "stepId": 1,
       "videoUrl": "https://www.youtube.com/watch?v=s-tPZ0gHe50",
       "instructions": "Chegou a hora de dar vida às letras! No Scratch, cada letra do teu nome será um ator com superpoderes independentes. Prepara-te para uma explosão de cores , giros  e efeitos especiais!",
+      "nextStepButton": true,
       "allowedCategories": [],
       "allowedOpcodes": [],
       "requiredOpcodes": [],
@@ -27,7 +28,18 @@
     {
       "stepId": 3,
       "videoUrl": null,
-      "instructions": "Queremos que a letra dê um giro completo (360 graus) de forma suave quando a bandeira for clicada. Para isso faça o calculo 360/15, para descobrir quantas vezes o comando repita precisa ser executado.   Nessa etapa você vai precisar dos seguintes blocos. ",
+      "instructions": "Queremos que a letra dê um giro completo (360 graus) de forma suave quando a bandeira for clicada. Para isso faça o calculo 360/15, para descobrir quantas vezes o comando repita precisa ser executado.",
+      "nextStepButton": true,
+      "allowedCategories": [],
+      "allowedOpcodes": [],
+      "requiredOpcodes": [],
+      "targetSpriteId": "Gato",
+      "previewBlocks": []
+    },
+    {
+      "stepId": 4,
+      "videoUrl": null,
+      "instructions": "Nessa etapa você vai precisar dos seguintes blocos. ",
       "allowedCategories": [
         "events",
         "control",
@@ -60,14 +72,59 @@
       ]
     },
     {
-      "stepId": 4,
+      "stepId": 5,
       "videoUrl": null,
-      "instructions": "Agora adicione a segunda letra do seu nome. A letra deve crescer assustadoramente quando bandeira for clicada  e voltar ao normal logo a seguir e repetir esse comportamento infinitamente.  ",
+      "instructions": "Agora adicione a segunda letra do seu nome. ",
       "allowedCategories": [
+          "events",
+        "control",
+        "motion"
+      ],
+      "allowedOpcodes": [
+         "event_whenflagclicked",
+        "control_repeat",
+        "motion_turnright"
+      ],
+      "requiredOpcodes": [],
+      "minSpriteCount": 2,
+      "targetSpriteId": "Gato",
+      "previewBlocks": []
+        },
+        {
+      "stepId": 6,
+      "videoUrl": null,
+      "instructions": " A letra deve crescer em 120 % quando bandeira for clicada, após 1 segundo  voltar ao tamanho normal logo a seguir e repetir esse comportamento infinitamente.",
+      "nextStepButton": true,
+      "allowedCategories": [
+          "events",
+        "control",
+        "motion"
+      ],
+      "allowedOpcodes": [
+         "event_whenflagclicked",
+        "control_repeat",
+        "motion_turnright"
+      ],
+      "requiredOpcodes": [],
+      "minSpriteCount": 2,
+      "targetSpriteId": "Gato",
+      "previewBlocks": []
+        },
+     {
+      "stepId": 7,
+      "videoUrl": null,
+      "instructions": "Nessa etapa você vai precisar dos seguintes blocos.",
+      "allowedCategories": [
+        "events",
+        "control",
+        "motion",
         "looks",
         "control"
       ],
       "allowedOpcodes": [
+        "event_whenflagclicked",
+        "control_repeat",
+        "motion_turnright",
         "looks_setsizeto",
         "control_wait",
         "control_forever"

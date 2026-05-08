@@ -112,7 +112,8 @@ class Blocks extends React.Component {
             'setLocale',
             'handleProjectRunStop',
             'captureStepPreviews',
-            'filterFlyoutBlocks'
+            'filterFlyoutBlocks',
+            'selectDefaultToolboxCategory'
         ]);
         this.ScratchBlocks.dialog.setPrompt(this.handlePromptStart);
         this.ScratchBlocks.ScratchVariables.setPromptHandler(
@@ -209,7 +210,7 @@ class Blocks extends React.Component {
         // @todo change this when blockly supports UI events
         addFunctionListener(this.workspace, 'translate', this.onWorkspaceMetricsChange);
         addFunctionListener(this.workspace, 'zoom', this.onWorkspaceMetricsChange);
-        this.workspace.getToolbox().selectItemByPosition(0);
+        this.selectDefaultToolboxCategory();
 
         this.attachVM();
         // Only update blocks/vm locale when visible to avoid sizing issues
@@ -252,6 +253,11 @@ class Blocks extends React.Component {
             this.requestToolboxUpdate();
             // filterFlyoutBlocks will be called inside runAfterRerender after
             // the toolbox re-renders (see updateToolbox). No separate timeout needed.
+        }
+        if (this.props.currentStep !== prevProps.currentStep) {
+            this.withToolboxUpdates(() => {
+                this.selectDefaultToolboxCategory();
+            });
         }
         // If any modals are open, call hideChaff to close z-indexed field editors
         if (this.props.anyModalVisible && !prevProps.anyModalVisible) {
@@ -453,9 +459,20 @@ class Blocks extends React.Component {
         window.HyScratch.triggerVerify = () => this.props.onVerifyCurrentStep(this.props.vm);
         // ──────────────────────────────────────────────────────────────────
 
+        // ── Track sprite list for reactive verification ─────────────────────
+        // When a step has sprite constraints but no required opcodes,
+        // auto-verify when sprites are added/removed (without running the project).
+        this._prevSpriteIds = new Set(
+            this.props.vm.runtime.targets
+                .filter(t => !t.isStage)
+                .map(t => t.id)
+        );
+        // ──────────────────────────────────────────────────────────────────
+
         // ── Activity run-stop listeners ────────────────────────────────────
         this._runStopTimeout = null;
         this._noScriptTimeout = null;
+        this._foreverVerifyTimeout = null;
 
         this._onProjectRunStart = () => {
             // Scripts are running — cancel the empty-workspace check
@@ -467,6 +484,27 @@ class Blocks extends React.Component {
                 clearTimeout(this._runStopTimeout);
                 this._runStopTimeout = null;
             }
+            if (this._foreverVerifyTimeout) {
+                clearTimeout(this._foreverVerifyTimeout);
+                this._foreverVerifyTimeout = null;
+            }
+
+            // Steps requiring "forever" never emit PROJECT_RUN_STOP naturally.
+            // Validate after ~2 cycles so success modal can appear automatically.
+            const step = this.props.currentStep;
+            const hasForeverRequirement = Boolean(
+                step && Array.isArray(step.requiredOpcodes) &&
+                step.requiredOpcodes.includes('control_forever')
+            );
+            if (hasForeverRequirement) {
+                this._foreverVerifyTimeout = setTimeout(() => {
+                    this._foreverVerifyTimeout = null;
+                    if (this.props.vm.runtime._nonMonitorThreadCount > 0) {
+                        this.handleProjectRunStop();
+                    }
+                }, 2200);
+            }
+
             if (this.props.activityModalOpen) {
                 this.props.onCloseActivityModal();
             }
@@ -492,6 +530,10 @@ class Blocks extends React.Component {
 
         this._onProjectRunStop = () => {
             if (!this.props.currentStep) return;
+            if (this._foreverVerifyTimeout) {
+                clearTimeout(this._foreverVerifyTimeout);
+                this._foreverVerifyTimeout = null;
+            }
             if (this._runStopTimeout) {
                 clearTimeout(this._runStopTimeout);
             }
@@ -538,6 +580,7 @@ class Blocks extends React.Component {
         this._knownWorkspaceBlockIds = new Set();
         this._knownSnapshotTargetId = null;
         this._hasPrimedWorkspaceSnapshot = false;
+        this._prevSpriteIds = null;
         this.props.vm.removeListener('SCRIPT_GLOW_ON', this.onScriptGlowOn);
         this.props.vm.removeListener('SCRIPT_GLOW_OFF', this.onScriptGlowOff);
         this.props.vm.removeListener('BLOCK_GLOW_ON', this.onBlockGlowOn);
@@ -557,6 +600,10 @@ class Blocks extends React.Component {
         if (this._runStopTimeout) {
             clearTimeout(this._runStopTimeout);
             this._runStopTimeout = null;
+        }
+        if (this._foreverVerifyTimeout) {
+            clearTimeout(this._foreverVerifyTimeout);
+            this._foreverVerifyTimeout = null;
         }
         if (this._capturePreviewTimeout) {
             clearTimeout(this._capturePreviewTimeout);
@@ -593,6 +640,46 @@ class Blocks extends React.Component {
                 this.updateToolboxBlockValue(`${prefix}y`, Math.round(this.props.vm.editingTarget.y).toString());
             });
         }
+
+        // ── Reactive sprite verification ────────────────────────────────────
+        // If the step has sprite constraints but no required opcodes,
+        // auto-verify when sprites are added/removed.
+        const step = this.props.currentStep;
+        if (!step) return;
+
+        const hasSpriteCriteria = (
+            Array.isArray(step.requiredRemoveSprites) ||
+            Array.isArray(step.requiredAddSprites) ||
+            typeof step.minSpriteCount === 'number' ||
+            typeof step.maxSpriteCount === 'number' ||
+            typeof step.requiredSpriteCount === 'number'
+        );
+
+        const noOpcodeRequired = (
+            !Array.isArray(step.requiredOpcodes) ||
+            step.requiredOpcodes.length === 0
+        );
+
+        if (hasSpriteCriteria && noOpcodeRequired) {
+            const currentSpriteIds = new Set(
+                this.props.vm.runtime.targets
+                    .filter(t => !t.isStage)
+                    .map(t => t.id)
+            );
+
+            // Check if sprite list changed (added or removed)
+            const changed = (
+                currentSpriteIds.size !== this._prevSpriteIds.size ||
+                [...currentSpriteIds].some(id => !this._prevSpriteIds.has(id)) ||
+                [...this._prevSpriteIds].some(id => !currentSpriteIds.has(id))
+            );
+
+            if (changed) {
+                this._prevSpriteIds = currentSpriteIds;
+                this.props.onVerifyCurrentStep(this.props.vm);
+            }
+        }
+        // ────────────────────────────────────────────────────────────────
     }
     onWorkspaceMetricsChange () {
         const target = this.props.vm.editingTarget;
@@ -842,6 +929,17 @@ class Blocks extends React.Component {
         // Re-capture SVG previews now that the flyout has new blocks
         this.captureStepPreviews();
     }
+    selectDefaultToolboxCategory () {
+        if (!this.workspace) return;
+        const toolbox = this.workspace.getToolbox && this.workspace.getToolbox();
+        if (!toolbox) return;
+
+        const controlItem = toolbox.getToolboxItemById && toolbox.getToolboxItemById('control');
+        if (controlItem) {
+            toolbox.setSelectedItem(controlItem);
+        }
+        this.filterFlyoutBlocks();
+    }
     filterFlyoutBlocks () {
         if (!this.props.allowedOpcodes) return;
         if (!this.workspace) return;
@@ -852,9 +950,9 @@ class Blocks extends React.Component {
             flyoutWs.getAllBlocks(false)
                 .filter(b => !b.getParent())
                 .forEach(b => {
-                    if (!this.props.allowedOpcodes.includes(b.type)) {
-                        b.getSvgRoot().style.display = 'none';
-                    }
+                    const svg = b.getSvgRoot && b.getSvgRoot();
+                    if (!svg) return;
+                    svg.style.display = this.props.allowedOpcodes.includes(b.type) ? '' : 'none';
                 });
         } catch (_) {
             // noop — flyout may not exist yet
@@ -1331,7 +1429,31 @@ Blocks.defaultProps = {
     colorMode: DEFAULT_MODE
 };
 
-const mapStateToProps = (state) => ({
+const getActivityToolboxFilters = (step) => {
+    const allowedCategories = step && Array.isArray(step.allowedCategories) ? step.allowedCategories : null;
+    const allowedOpcodes = step && Array.isArray(step.allowedOpcodes) ? step.allowedOpcodes : null;
+
+    // Explicit "no blocks" step: keep only Control category shell and zero blocks.
+    // This avoids falling back to "show everything".
+    if (Array.isArray(allowedCategories) && Array.isArray(allowedOpcodes) &&
+        allowedCategories.length === 0 && allowedOpcodes.length === 0) {
+        return {
+            allowedCategories: ['control'],
+            allowedOpcodes: []
+        };
+    }
+
+    return {
+        allowedCategories,
+        allowedOpcodes
+    };
+};
+
+const mapStateToProps = (state) => {
+    const currentStep = getCurrentStep(state);
+    const {allowedCategories, allowedOpcodes} = getActivityToolboxFilters(currentStep);
+
+    return ({
     anyModalVisible: (
         Object.keys(state.scratchGui.modals).some((key) => state.scratchGui.modals[key]) ||
         state.scratchGui.mode.isFullScreen
@@ -1342,18 +1464,19 @@ const mapStateToProps = (state) => ({
     messages: state.locales.messages,
     toolboxXML: filterToolboxXML(
         state.scratchGui.toolbox.toolboxXML,
-        (getCurrentStep(state) || {}).allowedCategories || null,
-        (getCurrentStep(state) || {}).allowedOpcodes || null
+        allowedCategories,
+        allowedOpcodes
     ),
-    allowedOpcodes: (getCurrentStep(state) || {}).allowedOpcodes || null,
+    allowedOpcodes,
     previewBlockSvgs: state.scratchGui.activity.previewBlockSvgs || [],
-    currentStep: getCurrentStep(state),
+    currentStep,
     activityModalOpen: state.scratchGui.activityModal.isOpen,
     captureRequestSeq: state.scratchGui.activity.captureRequestSeq,
     customProceduresVisible: state.scratchGui.customProcedures.active,
     workspaceMetrics: state.scratchGui.workspaceMetrics,
     useCatBlocks: isTimeTravel2020(state) || state.scratchGui.settings.theme === CAT_BLOCKS_THEME
-});
+    });
+};
 
 const mapDispatchToProps = (dispatch) => ({
     onActivateColorPicker: (callback) => dispatch(activateColorPicker(callback)),

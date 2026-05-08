@@ -28,6 +28,32 @@ const filterToolboxXML = function (toolboxXML, allowedCategories, allowedOpcodes
     if (doc.querySelector('parsererror')) return toolboxXML;
 
     const categories = doc.querySelectorAll('category');
+    const allowedSet = Array.isArray(allowedOpcodes) ? new Set(allowedOpcodes) : null;
+
+    const cleanCategoryNodes = function (cat) {
+        if (!allowedSet) return;
+
+        // Remove all block nodes not explicitly allowed.
+        Array.from(cat.querySelectorAll('block')).forEach(block => {
+            const type = block.getAttribute('type');
+            if (!type || !allowedSet.has(type)) {
+                block.parentNode.removeChild(block);
+            }
+        });
+
+        // Remove separators when there is no block around them in the same category,
+        // preventing visual gaps in the flyout.
+        const children = Array.from(cat.children);
+        children.forEach((node, idx) => {
+            if (node.tagName !== 'sep') return;
+            const prevBlock = children.slice(0, idx).reverse().find(n => n.tagName === 'block');
+            const nextBlock = children.slice(idx + 1).find(n => n.tagName === 'block');
+            if (!prevBlock || !nextBlock) {
+                node.parentNode.removeChild(node);
+            }
+        });
+    };
+
     categories.forEach(cat => {
         // scratch-blocks uses `toolboxitemid` — not `id` or `name`
         const catId = (cat.getAttribute('toolboxitemid') || '').toLowerCase();
@@ -40,14 +66,17 @@ const filterToolboxXML = function (toolboxXML, allowedCategories, allowedOpcodes
 
         // Rule 2: remove if no allowed opcode belongs to this category
         // (avoids showing a flyout with zero valid blocks)
-        if (allowedOpcodes && catId) {
+        if (allowedOpcodes && allowedOpcodes.length > 0 && catId) {
             const hasAny = allowedOpcodes.some(
                 op => (getCategoryForOpcode(op) || '').toLowerCase() === catId
             );
             if (!hasAny) {
                 cat.parentNode.removeChild(cat);
+                return;
             }
         }
+
+        cleanCategoryNodes(cat);
     });
 
     // Serialize documentElement to avoid XMLSerializer prepending <?xml?> declaration

@@ -1,11 +1,25 @@
+.invisible {
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+
 .overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 1400;
+    transition: background 200ms ease;
+}
+
+:global(.ReactModal__Overlay--after-open).overlay {
+    background: rgba(0, 0, 0, 0.5);
+}
+
+:global(.ReactModal__Overlay--before-close).overlay {
+    background: rgba(0, 0, 0, 0);
 }
 
 .container {
@@ -19,12 +33,37 @@
     font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
     display: flex;
     flex-direction: column;
+    opacity: 0;
+    transform: scale(0.92) translateY(12px);
+    transition: opacity 220ms ease, transform 220ms ease;
+}
+
+:global(.ReactModal__Content--after-open).container {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+}
+
+:global(.ReactModal__Content--before-close).container {
+    opacity: 0;
+    transform: scale(0.92) translateY(12px);
+}
+
+@keyframes slideInBody {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .header {
     padding: 1.2rem 1.6rem 1rem;
     display: flex;
     align-items: center;
+    transition: background 250ms ease;
 }
 
 .headerVideo {
@@ -57,6 +96,25 @@
     padding: 1.4rem 1.6rem 1rem;
     flex: 1;
     overflow-y: auto;
+    animation: slideInBody 200ms ease both;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.body > * {
+    width: 100%;
+    max-width: 540px;
+}
+
+.footer {
+    padding: 1rem 1.6rem 1.4rem;
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    border-top: 1px solid #e5e7eb;
+    animation: slideInBody 200ms ease both;
+    animation-delay: 40ms;
 }
 
 .instructions {
@@ -65,12 +123,14 @@
     line-height: 1.7;
     margin: 0 0 1.2rem;
     white-space: pre-wrap;
+    text-align: justify;
 }
 
 .verifyText {
     font-size: 1rem;
     color: #374151;
     line-height: 1.7;
+    text-align: justify;
 }
 
 .verifyErrorText {
@@ -82,6 +142,7 @@
     padding: 0.65rem 1rem;
     margin: 0 0 0.8rem;
     line-height: 1.6;
+    text-align: justify;
 }
 
 .successText {
@@ -89,6 +150,7 @@
     color: #374151;
     line-height: 1.7;
     font-weight: 600;
+    text-align: justify;
 }
 
 .incompleteText {
@@ -100,6 +162,7 @@
     padding: 0.75rem 1rem;
     line-height: 1.7;
     margin: 0;
+    text-align: justify;
 }
 
 .blockPreviewList {
@@ -107,6 +170,7 @@
     flex-wrap: wrap;
     gap: 0.5rem;
     margin-top: 0.8rem;
+    justify-content: center;
 }
 
 .blockPreview {
@@ -142,14 +206,6 @@
     display: block;
 }
 
-.footer {
-    padding: 1rem 1.6rem 1.4rem;
-    display: flex;
-    justify-content: flex-end;
-    gap: 0.75rem;
-    border-top: 1px solid #e5e7eb;
-}
-
 .primaryButton {
     background: #4c97ff;
     color: #fff;
@@ -159,10 +215,18 @@
     font-size: 0.95rem;
     font-weight: 600;
     cursor: pointer;
+    transition: background 180ms ease, transform 120ms ease, box-shadow 180ms ease;
 }
 
 .primaryButton:hover {
     background: #3373cc;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(76, 151, 255, 0.35);
+}
+
+.primaryButton:active {
+    transform: translateY(0);
+    box-shadow: none;
 }
 
 .secondaryButton {
