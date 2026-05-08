@@ -1,0 +1,70 @@
+{
+  "activityId": "demo-activity-001",
+  "title": "Fazendo o Gato se Mover",
+  "steps": [
+    {
+      "stepId": 1,
+      "videoUrl": "https://www.youtube.com/embed/dQw4w9WgXcQ",
+      "instructions": "Vamos fazer o Gato andar! Nesta etapa você vai usar o bloco 'mova 10 passos' para que o Gato se mova quando o projeto começar.",
+      "allowedCategories": [
+        "motion",
+        "events"
+      ],
+      "allowedOpcodes": [
+        "event_whenflagclicked",
+        "motion_movesteps"
+      ],
+      "requiredOpcodes": [
+        "event_whenflagclicked",
+        "motion_movesteps"
+      ],
+      "targetSpriteId": "Gato",
+      "previewBlocks": [
+        {
+          "opcode": "event_whenflagclicked",
+          "label": "quando ⚑ for clicado"
+        },
+        {
+          "opcode": "motion_movesteps",
+          "label": "mova 10 passos"
+        }
+      ]
+    },
+    {
+      "stepId": 2,
+      "videoUrl": null,
+      "instructions": "Ótimo trabalho! Agora vamos fazer o Gato falar quando chegar no outro lado da tela. Use o bloco 'diga Olá! por 2 segundos' depois do bloco de mover.",
+      "allowedCategories": [
+        "motion",
+        "events",
+        "looks"
+      ],
+      "allowedOpcodes": [
+        "event_whenflagclicked",
+        "motion_movesteps",
+        "motion_turnright",
+        "looks_sayforsecs"
+      ],
+      "requiredOpcodes": [
+        "event_whenflagclicked",
+        "motion_movesteps",
+        "looks_sayforsecs"
+      ],
+      "targetSpriteId": "Gato",
+      "previewBlocks": [
+        {
+          "opcode": "event_whenflagclicked",
+          "label": "quando ⚑ for clicado"
+        },
+        {
+          "opcode": "motion_movesteps",
+          "label": "mova 10 passos"
+        },
+        {
+          "opcode": "looks_sayforsecs",
+          "label": "diga Olá! por 2 segundos"
+        }
+      ]
+    }
+  ]
+}

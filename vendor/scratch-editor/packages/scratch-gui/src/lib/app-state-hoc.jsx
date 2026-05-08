@@ -28,6 +28,8 @@ const AppStateHOC = function (WrappedComponent, localesOnly, configFactory) {
                 showTelemetryModal: props.showTelemetryModal,
                 isEmbedded: props.isEmbedded
             }, configFactory);
+            // TODO: remover após validação — expõe store no console do browser
+            if (typeof window !== 'undefined') window.__store = this.appState.store;
         }
 
         render () {

@@ -63,7 +63,8 @@ const baseConfig = new ScratchWebpackConfigBuilder(
         'process.env.DEBUG': Boolean(process.env.DEBUG),
         'process.env.GA_ID': `"${process.env.GA_ID || 'UA-000000-01'}"`,
         'process.env.GTM_ENV_AUTH': `"${process.env.GTM_ENV_AUTH || ''}"`,
-        'process.env.GTM_ID': process.env.GTM_ID ? `"${process.env.GTM_ID}"` : null
+        'process.env.GTM_ID': process.env.GTM_ID ? `"${process.env.GTM_ID}"` : null,
+        'process.env.ACTIVITY_API_URL': JSON.stringify(process.env.ACTIVITY_API_URL || 'http://localhost:3001')
     }))
     .addPlugin(new CopyWebpackPlugin({
         patterns: [
@@ -161,11 +162,9 @@ const buildConfig = baseConfig.clone()
         output: {
             path: path.resolve(__dirname, 'build'),
 
-            // This output is loaded using a file:// scheme from the local file system.
-            // Having `publicPath: '/'` (the default) means the `gui.js` file in `build/index.html`
-            // would be looked for at the root of the filesystem, which is incorrect.
-            // Hence, we're resetting the public path to be relative.
-            publicPath: ''
+            // publicPath: '' was used for file:// scheme loading.
+            // Changed to '/' for HTTP serving (Vercel static deploy).
+            publicPath: '/'
         }
     })
     .addPlugin(new HtmlWebpackPlugin({

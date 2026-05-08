@@ -2,6 +2,11 @@
 import debounce from 'lodash.debounce';
 import defaultsDeep from 'lodash.defaultsdeep';
 import makeToolboxXML from '../lib/make-toolbox-xml';
+import {filterToolboxXML} from '../lib/filter-toolbox-xml';
+import captureSvgFromBlock from '../lib/capture-svg-from-block';
+import {getCurrentStep, SET_PREVIEW_BLOCK_SVGS} from '../reducers/activity';
+import {verifyCurrentStep} from '../reducers/activity-actions';
+import {CLOSE_ACTIVITY_MODAL} from '../reducers/activity-modal';
 import PropTypes from 'prop-types';
 import React from 'react';
 import VMScratchBlocks from '../lib/blocks';
@@ -38,56 +43,6 @@ import {isTimeTravel2020} from '../reducers/time-travel';
 import {showBlockHint} from '../reducers/block-hint';
 import {validateBlockEvent, validateWrongOpcode} from '../lib/block-validator.js';
 
-/**
- * [SVG-B] Captura o bloco como string SVG autocontida clonando o elemento do workspace.
- *
- * Riscos conhecidos (logados via console.warn quando ocorrem):
- *  1. url(#blocklyStackGlowFilter) — filtros SVG definidos no workspace principal
- *     nao resolvem dentro do modal. Glows de pilha ficarao ausentes.
- *  2. Estado de selecao — se o bloco estiver selecionado no momento da captura,
- *     a cor de highlight aparecera no SVG clonado.
- *  3. getBBox() pode falhar em ambientes headless ou se o elemento nao estiver
- *     visivel no viewport — viewBox cai para valores padrao (0 -10 220 60).
- */
-function captureSvgFromBlock (block) {
-    if (!block || typeof block.getSvgRoot !== 'function') return null;
-    const svgRoot = block.getSvgRoot();
-    if (!svgRoot) return null;
-    try {
-        // getBBox() deve ser chamado no elemento VIVO (antes do clone)
-        let bbox = null;
-        try {
-            bbox = svgRoot.getBBox();
-        } catch (bboxErr) {
-            console.warn(
-                '[HyScratch SVG] getBBox() falhou — usando viewBox padrao.',
-                'Causa provavel: elemento fora do viewport ou nao renderizado.',
-                bboxErr.message
-            );
-        }
-        // Clona para nao modificar o DOM vivo
-        const clone = svgRoot.cloneNode(true);
-        // Remove o transform de posicao absoluta do workspace (ex: translate(320, 450))
-        clone.removeAttribute('transform');
-        const pad = 6;
-        const vx = bbox ? (bbox.x - pad) : -pad;
-        const vy = bbox ? (bbox.y - pad) : -pad;
-        const vw = bbox ? (bbox.width + pad * 2) : 220;
-        const vh = bbox ? (bbox.height + pad * 2) : 60;
-        // AVISO CONHECIDO: referencias url(#filterId) do workspace pai nao resolvem aqui.
-        // Efeitos visuais como glow de pilha ficarao ausentes — comportamento esperado.
-        const svgStr = '<svg xmlns="http://www.w3.org/2000/svg"' +
-            ' width="' + Math.ceil(vw) + '" height="' + Math.ceil(vh) + '"' +
-            ' viewBox="' + vx + ' ' + vy + ' ' + vw + ' ' + vh + '">' +
-            clone.outerHTML +
-            '</svg>';
-        return svgStr;
-    } catch (err) {
-        console.warn('[HyScratch SVG] Erro ao serializar SVG do bloco:', err.message);
-        return null;
-    }
-}
-
 import {
     activateTab,
     SOUNDS_TAB_INDEX
@@ -105,6 +60,21 @@ const addFunctionListener = (object, property, callback) => {
 const DroppableBlocks = DropAreaHOC([
     DragConstants.BACKPACK_CODE
 ])(BlocksComponent);
+
+import {getCategoryForOpcode} from '../lib/opcode-category-map';
+
+// Maps opcode prefix → toolbox category toolboxitemid (kept for captureStepPreviews)
+const OPCODE_CATEGORY_MAP = {
+    motion: 'motion',
+    looks: 'looks',
+    sound: 'sound',
+    event: 'events',
+    control: 'control',
+    sensing: 'sensing',
+    operator: 'operators',
+    data: 'variables',
+    procedures: 'myBlocks'
+};
 
 class Blocks extends React.Component {
     constructor (props) {
@@ -139,7 +109,10 @@ class Blocks extends React.Component {
             'onWorkspaceUpdate',
             'onWorkspaceMetricsChange',
             'setBlocks',
-            'setLocale'
+            'setLocale',
+            'handleProjectRunStop',
+            'captureStepPreviews',
+            'filterFlyoutBlocks'
         ]);
         this.ScratchBlocks.dialog.setPrompt(this.handlePromptStart);
         this.ScratchBlocks.ScratchVariables.setPromptHandler(
@@ -194,7 +167,7 @@ class Blocks extends React.Component {
             this.ScratchBlocks.ScratchProcedures.getProceduresCategory
         );
 
-        this.toolboxUpdateChangeListener = event => {
+        this.toolboxUpdateChangeListener = (event) => {
             if (
                 event.type === this.ScratchBlocks.Events.VAR_CREATE ||
                 event.type === this.ScratchBlocks.Events.VAR_RENAME ||
@@ -218,7 +191,7 @@ class Blocks extends React.Component {
 
         const toolboxWorkspace = this.workspace.getFlyout().getWorkspace();
 
-        const varListButtonCallback = type =>
+        const varListButtonCallback = (type) =>
             (() => this.ScratchBlocks.ScratchVariables.createVariable(this.workspace, null, type));
         const procButtonCallback = () => {
             this.ScratchBlocks.ScratchProcedures.createProcedureDefCallback(this.workspace);
@@ -260,10 +233,26 @@ class Blocks extends React.Component {
             this.props.customProceduresVisible !== nextProps.customProceduresVisible ||
             this.props.locale !== nextProps.locale ||
             this.props.anyModalVisible !== nextProps.anyModalVisible ||
-            this.props.stageSize !== nextProps.stageSize
+            this.props.stageSize !== nextProps.stageSize ||
+            this.props.activityModalOpen !== nextProps.activityModalOpen ||
+            this.props.currentStep !== nextProps.currentStep ||
+            this.props.captureRequestSeq !== nextProps.captureRequestSeq ||
+            this.props.allowedOpcodes !== nextProps.allowedOpcodes
         );
     }
     componentDidUpdate (prevProps) {
+        // Capture SVG previews when the user clicks "Começar" (or auto-skips on no-video
+        // steps). REQUEST_CAPTURE_PREVIEWS increments captureRequestSeq, guaranteeing
+        // the workspace is already rendered and the toolbox is ready.
+        if (this.props.captureRequestSeq !== prevProps.captureRequestSeq) {
+            clearTimeout(this._capturePreviewTimeout);
+            this._capturePreviewTimeout = setTimeout(this.captureStepPreviews, 100);
+        }
+        if (this.props.allowedOpcodes !== prevProps.allowedOpcodes) {
+            this.requestToolboxUpdate();
+            // filterFlyoutBlocks will be called inside runAfterRerender after
+            // the toolbox re-renders (see updateToolbox). No separate timeout needed.
+        }
         // If any modals are open, call hideChaff to close z-indexed field editors
         if (this.props.anyModalVisible && !prevProps.anyModalVisible) {
             this.ScratchBlocks.hideChaff();
@@ -371,6 +360,9 @@ class Blocks extends React.Component {
                         (newCategoryScrollPosition * scale) + offsetWithinCategory
                     );
             }
+            // Re-apply flyout block filter after the toolbox re-renders,
+            // since forceRerender() recreates block SVGs and clears display style.
+            this.filterFlyoutBlocks();
         });
         this.workspace.getToolbox().forceRerender();
         this._renderedToolboxXML = this.props.toolboxXML;
@@ -399,7 +391,7 @@ class Blocks extends React.Component {
         // Arraste qualquer bloco e veja os eventos aparecerem na barra verde.
         // DIAGNOSTICO VISUAL — oculto por padrao.
         // Para ativar: window.HyScratch.debugOverlay = true (no console do browser)
-        this._debugListener = e => {
+        this._debugListener = (e) => {
             if (!window.HyScratch || !window.HyScratch.debugOverlay) return;
             if (!window._scratchDebugDiv) {
                 const div = document.createElement('div');
@@ -422,7 +414,11 @@ class Blocks extends React.Component {
                 window._scratchDebugDiv = div;
             }
             const line = document.createElement('div');
-            line.textContent = 'type=' + e.type + ' | blockId=' + (e.blockId || '?') + ' | recordUndo=' + e.recordUndo + ' | element=' + (e.element || '?');
+            const typeStr = `type=${e.type}`;
+            const blockStr = `blockId=${e.blockId || '?'}`;
+            const undoStr = `recordUndo=${e.recordUndo}`;
+            const elemStr = `element=${e.element || '?'}`;
+            line.textContent = `${typeStr} | ${blockStr} | ${undoStr} | ${elemStr}`;
             window._scratchDebugDiv.prepend(line);
             while (window._scratchDebugDiv.children.length > 10) {
                 window._scratchDebugDiv.removeChild(window._scratchDebugDiv.lastChild);
@@ -433,7 +429,9 @@ class Blocks extends React.Component {
         // Expoe funcoes de diagnostico/teste no namespace global
         window.HyScratch = window.HyScratch || {};
         window.HyScratch.debugOverlay = false;
-        window.HyScratch.showDebug = () => { window.HyScratch.debugOverlay = true; };
+        window.HyScratch.showDebug = () => {
+            window.HyScratch.debugOverlay = true;
+        };
         window.HyScratch.hideDebug = () => {
             window.HyScratch.debugOverlay = false;
             if (window._scratchDebugDiv) {
@@ -441,7 +439,7 @@ class Blocks extends React.Component {
                 window._scratchDebugDiv = null;
             }
         };
-        window.HyScratch.testModal = hint => {
+        window.HyScratch.testModal = (hint) => {
             this.props.onShowBlockHint(hint || {
                 detectedOpcode: 'motion_pointtowards',
                 detectedLabel: 'aponte para ()',
@@ -450,7 +448,67 @@ class Blocks extends React.Component {
                 suggestedLabel: 'va para x: () y: ()'
             });
         };
+        window.HyScratch.vm = this.props.vm;
+        window.HyScratch.triggerRunStop = () => this.props.vm.emit('PROJECT_RUN_STOP');
+        window.HyScratch.triggerVerify = () => this.props.onVerifyCurrentStep(this.props.vm);
         // ──────────────────────────────────────────────────────────────────
+
+        // ── Activity run-stop listeners ────────────────────────────────────
+        this._runStopTimeout = null;
+        this._noScriptTimeout = null;
+
+        this._onProjectRunStart = () => {
+            // Scripts are running — cancel the empty-workspace check
+            if (this._noScriptTimeout) {
+                clearTimeout(this._noScriptTimeout);
+                this._noScriptTimeout = null;
+            }
+            if (this._runStopTimeout) {
+                clearTimeout(this._runStopTimeout);
+                this._runStopTimeout = null;
+            }
+            if (this.props.activityModalOpen) {
+                this.props.onCloseActivityModal();
+            }
+        };
+
+        // Intercept vm.greenFlag to handle the case where no scripts exist.
+        // When the workspace is empty (or has only orphan blocks), no threads
+        // are created, _nonMonitorThreadCount stays 0, and PROJECT_RUN_STOP
+        // never fires. We detect this with a 150ms timeout after greenFlag.
+        this._originalGreenFlag = this.props.vm.greenFlag.bind(this.props.vm);
+        this.props.vm.greenFlag = () => {
+            this._originalGreenFlag();
+            if (!this.props.currentStep) return;
+            if (this._noScriptTimeout) clearTimeout(this._noScriptTimeout);
+            this._noScriptTimeout = setTimeout(() => {
+                this._noScriptTimeout = null;
+                // If _nonMonitorThreadCount is still 0, no scripts ever started
+                if (this.props.vm.runtime._nonMonitorThreadCount === 0) {
+                    this.handleProjectRunStop();
+                }
+            }, 150);
+        };
+
+        this._onProjectRunStop = () => {
+            if (!this.props.currentStep) return;
+            if (this._runStopTimeout) {
+                clearTimeout(this._runStopTimeout);
+            }
+            // Re-check after one frame: if _nonMonitorThreadCount is still 0,
+            // the runtime truly finished all scripts (not a momentary empty queue).
+            this._runStopTimeout = setTimeout(() => {
+                this._runStopTimeout = null;
+                if (this.props.vm.runtime._nonMonitorThreadCount === 0) {
+                    // Wait 2s so the student can see the result before the modal opens.
+                    this._runStopTimeout = setTimeout(() => {
+                        this._runStopTimeout = null;
+                        this.handleProjectRunStop();
+                    }, 2000);
+                }
+                // If count > 0, a new PROJECT_RUN_STOP will fire when done.
+            }, 100);
+        };
 
         this.flyoutWorkspace = this.workspace
             .getFlyout()
@@ -469,6 +527,8 @@ class Blocks extends React.Component {
         this.props.vm.addListener('BLOCKSINFO_UPDATE', this.handleBlocksInfoUpdate);
         this.props.vm.addListener('PERIPHERAL_CONNECTED', this.handleStatusButtonUpdate);
         this.props.vm.addListener('PERIPHERAL_DISCONNECTED', this.handleStatusButtonUpdate);
+        this.props.vm.addListener('PROJECT_RUN_START', this._onProjectRunStart);
+        this.props.vm.addListener('PROJECT_RUN_STOP', this._onProjectRunStop);
     }
     detachVM () {
         this.workspace.removeChangeListener(this.handleBlockValidation);
@@ -490,6 +550,28 @@ class Blocks extends React.Component {
         this.props.vm.removeListener('BLOCKSINFO_UPDATE', this.handleBlocksInfoUpdate);
         this.props.vm.removeListener('PERIPHERAL_CONNECTED', this.handleStatusButtonUpdate);
         this.props.vm.removeListener('PERIPHERAL_DISCONNECTED', this.handleStatusButtonUpdate);
+        if (this._noScriptTimeout) {
+            clearTimeout(this._noScriptTimeout);
+            this._noScriptTimeout = null;
+        }
+        if (this._runStopTimeout) {
+            clearTimeout(this._runStopTimeout);
+            this._runStopTimeout = null;
+        }
+        if (this._capturePreviewTimeout) {
+            clearTimeout(this._capturePreviewTimeout);
+            this._capturePreviewTimeout = null;
+        }
+        if (this._originalGreenFlag) {
+            this.props.vm.greenFlag = this._originalGreenFlag;
+            this._originalGreenFlag = null;
+        }
+        if (this._onProjectRunStop) {
+            this.props.vm.removeListener('PROJECT_RUN_STOP', this._onProjectRunStop);
+        }
+        if (this._onProjectRunStart) {
+            this.props.vm.removeListener('PROJECT_RUN_START', this._onProjectRunStart);
+        }
     }
 
     updateToolboxBlockValue (id, value) {
@@ -506,7 +588,7 @@ class Blocks extends React.Component {
 
     onTargetsUpdate () {
         if (this.props.vm.editingTarget && this.workspace.getFlyout()) {
-            ['glide', 'move', 'set'].forEach(prefix => {
+            ['glide', 'move', 'set'].forEach((prefix) => {
                 this.updateToolboxBlockValue(`${prefix}x`, Math.round(this.props.vm.editingTarget.x).toString());
                 this.updateToolboxBlockValue(`${prefix}y`, Math.round(this.props.vm.editingTarget.y).toString());
             });
@@ -669,11 +751,11 @@ class Blocks extends React.Component {
             label: categoryInfo.id
         });
 
-        const defineBlocks = blockInfoArray => {
+        const defineBlocks = (blockInfoArray) => {
             if (blockInfoArray && blockInfoArray.length > 0) {
                 const staticBlocksJson = [];
                 const dynamicBlocksInfo = [];
-                blockInfoArray.forEach(blockInfo => {
+                blockInfoArray.forEach((blockInfo) => {
                     if (blockInfo.info && blockInfo.info.isDynamic) {
                         dynamicBlocksInfo.push(blockInfo);
                     } else if (blockInfo.json) {
@@ -683,7 +765,7 @@ class Blocks extends React.Component {
                 });
 
                 this.ScratchBlocks.defineBlocksWithJsonArray(staticBlocksJson);
-                dynamicBlocksInfo.forEach(blockInfo => {
+                dynamicBlocksInfo.forEach((blockInfo) => {
                     // This is creating the block factory / constructor -- NOT a specific instance of the block.
                     // The factory should only know static info about the block: the category info and the opcode.
                     // Anything else will be picked up from the XML attached to the block instance.
@@ -699,7 +781,7 @@ class Blocks extends React.Component {
         // these actually define blocks and MUST run regardless of the UI state
         defineBlocks(
             Object.getOwnPropertyNames(categoryInfo.customFieldTypes)
-                .map(fieldTypeName => categoryInfo.customFieldTypes[fieldTypeName].scratchBlocksDefinition));
+                .map((fieldTypeName) => categoryInfo.customFieldTypes[fieldTypeName].scratchBlocksDefinition));
         defineBlocks(categoryInfo.menus);
         defineBlocks(categoryInfo.blocks);
         // Note that Blockly uses the UK spelling of "colour", so fields that
@@ -746,7 +828,7 @@ class Blocks extends React.Component {
         this.handleExtensionAdded(categoryInfo);
     }
     handleCategorySelected (categoryId) {
-        const extension = extensionData.find(ext => ext.extensionId === categoryId);
+        const extension = extensionData.find((ext) => ext.extensionId === categoryId);
         if (extension && extension.launchPeripheralConnectionFlow) {
             this.handleConnectionModalStart(categoryId);
         }
@@ -754,7 +836,29 @@ class Blocks extends React.Component {
         this.withToolboxUpdates(() => {
             const toolbox = this.workspace.getToolbox();
             toolbox.setSelectedItem(toolbox.getToolboxItemById(categoryId));
+            // Flyout is populated synchronously after setSelectedItem — filter immediately.
+            this.filterFlyoutBlocks();
         });
+        // Re-capture SVG previews now that the flyout has new blocks
+        this.captureStepPreviews();
+    }
+    filterFlyoutBlocks () {
+        if (!this.props.allowedOpcodes) return;
+        if (!this.workspace) return;
+        try {
+            const flyout = this.workspace.getFlyout && this.workspace.getFlyout();
+            const flyoutWs = flyout && flyout.getWorkspace && flyout.getWorkspace();
+            if (!flyoutWs) return;
+            flyoutWs.getAllBlocks(false)
+                .filter(b => !b.getParent())
+                .forEach(b => {
+                    if (!this.props.allowedOpcodes.includes(b.type)) {
+                        b.getSvgRoot().style.display = 'none';
+                    }
+                });
+        } catch (_) {
+            // noop — flyout may not exist yet
+        }
     }
     setBlocks (blocks) {
         this.blocks = blocks;
@@ -809,7 +913,7 @@ class Blocks extends React.Component {
             return;
         }
         const currentBlocks = this.workspace.getAllBlocks(false);
-        this._knownWorkspaceBlockIds = new Set(currentBlocks.map(block => block.id));
+        this._knownWorkspaceBlockIds = new Set(currentBlocks.map((block) => block.id));
     }
     getHintFromWorkspaceDelta () {
         if (!this.workspace || typeof this.workspace.getAllBlocks !== 'function') return null;
@@ -818,9 +922,48 @@ class Blocks extends React.Component {
         const currentIds = new Set(currentBlocks.map(block => block.id));
 
         let hint = null;
+        const step = this.props.currentStep;
+
         for (let i = 0; i < currentBlocks.length; i++) {
             const block = currentBlocks[i];
             if (this._knownWorkspaceBlockIds.has(block.id)) continue;
+
+            if (step && Array.isArray(step.allowedOpcodes)) {
+                // Dynamic hint: block not allowed in this step
+                if (step.allowedOpcodes.includes(block.type)) continue;
+
+                const previews = step.previewBlocks || [];
+                const svgs = this.props.previewBlockSvgs || [];
+
+                const findLabel = opcode => {
+                    const p = previews.find(b => b.opcode === opcode);
+                    if (p) return p.label;
+                    const s = svgs.find(b => b.opcode === opcode);
+                    return s ? s.label : opcode;
+                };
+                const findSvg = opcode => {
+                    const s = svgs.find(b => b.opcode === opcode);
+                    return s ? s.svgXml : null;
+                };
+
+                // Pick suggested = first required opcode not yet in workspace
+                const required = step.requiredOpcodes || [];
+                const presentTypes = new Set(currentBlocks.map(b => b.type));
+                const suggestedOpcode = required.find(op => !presentTypes.has(op)) || null;
+
+                hint = {
+                    detectedOpcode: block.type,
+                    detectedLabel: findLabel(block.type),
+                    detectedSvgXml: findSvg(block.type),
+                    suggestedOpcode,
+                    suggestedLabel: suggestedOpcode ? findLabel(suggestedOpcode) : null,
+                    suggestedSvgXml: suggestedOpcode ? findSvg(suggestedOpcode) : null,
+                    message: 'Este bloco nao faz parte desta atividade. Experimente usar:'
+                };
+                break;
+            }
+
+            // Fallback: static activity-config validator (no active step)
             hint = validateWrongOpcode(block.type);
             if (hint) break;
         }
@@ -842,6 +985,85 @@ class Blocks extends React.Component {
         this._lastBlockHintOpcode = hint.detectedOpcode;
         this._lastBlockHintShownAt = now;
         this.props.onShowBlockHint(hint);
+    }
+    handleProjectRunStop () {
+        if (!this.props.currentStep) return;
+        this.props.onVerifyCurrentStep(this.props.vm);
+    }
+    captureStepPreviews () {
+        const step = this.props.currentStep;
+        if (!step || !step.previewBlocks || !step.previewBlocks.length) {
+            this.props.onSetPreviewBlockSvgs([]);
+            return;
+        }
+        if (!this.workspace) return;
+
+        const needed = step.previewBlocks.map(pb => pb.opcode);
+        const svgMap = {};
+
+        const getFlyoutBlocks = () => {
+            try {
+                const flyout = this.workspace.getFlyout && this.workspace.getFlyout();
+                const flyoutWs = flyout && flyout.getWorkspace && flyout.getWorkspace();
+                return flyoutWs ? flyoutWs.getAllBlocks(false) : [];
+            } catch (_) {
+                return [];
+            }
+        };
+
+        // Capture from whichever category is currently open
+        for (const block of getFlyoutBlocks()) {
+            if (needed.includes(block.type)) {
+                svgMap[block.type] = captureSvgFromBlock(block);
+            }
+        }
+
+        // For opcodes still missing, switch to their category temporarily
+        const stillNeeded = needed.filter(op => !svgMap[op]);
+        if (stillNeeded.length > 0) {
+            const toolbox = this.workspace.getToolbox ? this.workspace.getToolbox() : null;
+            const originalItem = toolbox ? toolbox.getSelectedItem() : null;
+
+            // Group missing opcodes by their target category
+            const byCategory = {};
+            for (const opcode of stillNeeded) {
+                const catId = OPCODE_CATEGORY_MAP[opcode.split('_')[0]];
+                if (!catId) continue;
+                if (!byCategory[catId]) byCategory[catId] = [];
+                byCategory[catId].push(opcode);
+            }
+
+            for (const catId of Object.keys(byCategory)) {
+                try {
+                    const item = toolbox.getToolboxItemById(catId);
+                    if (!item) continue;
+                    toolbox.setSelectedItem(item);
+                    for (const block of getFlyoutBlocks()) {
+                        if (byCategory[catId].includes(block.type) && !svgMap[block.type]) {
+                            svgMap[block.type] = captureSvgFromBlock(block);
+                        }
+                    }
+                } catch (_) {
+                    // noop
+                }
+            }
+
+            // Restore original category selection
+            if (originalItem) {
+                try {
+                    toolbox.setSelectedItem(originalItem);
+                } catch (_) {
+                    // noop
+                }
+            }
+        }
+
+        const captured = step.previewBlocks.map(pb => ({
+            opcode: pb.opcode,
+            label: pb.label,
+            svgXml: svgMap[pb.opcode] || null
+        }));
+        this.props.onSetPreviewBlockSvgs(captured);
     }
     handleBlockValidation (event) {
         if (!event) return;
@@ -870,7 +1092,7 @@ class Blocks extends React.Component {
         // setTimeout(0): aguarda eventos sincronos de delete (lixeira/flyout) processarem.
         // Se o bloco foi descartado, getBlockById retorna null e nao mostramos o modal.
         const self = this;
-        setTimeout(function () {
+        setTimeout(() => {
             if (!self.workspace) return;
             const block = self.workspace.getBlockById(pendingId);
             if (!block) return; // bloco descartado na lixeira ou flyout
@@ -904,9 +1126,7 @@ class Blocks extends React.Component {
             // CAUSA CONHECIDA da falha: blocos do workspace têm estado visual diferente após
             // o drag (camada de arrastar, selecao) que pode tornar o texto SVG nao visivel.
             let detectedSvgXml = null;
-            const flyoutDetected = flyoutBlocks.find(function (b) {
-                return b.type === block.type;
-            });
+            const flyoutDetected = flyoutBlocks.find((b) => b.type === block.type);
             if (flyoutDetected) {
                 detectedSvgXml = captureSvgFromBlock(flyoutDetected);
                 if (!detectedSvgXml) {
@@ -937,9 +1157,7 @@ class Blocks extends React.Component {
             // [SVG-B] Bloco sugerido: busca no flyout.
             let suggestedSvgXml = null;
             if (hint.suggestedOpcode) {
-                const suggestedBlock = flyoutBlocks.find(function (b) {
-                    return b.type === hint.suggestedOpcode;
-                });
+                const suggestedBlock = flyoutBlocks.find((b) => b.type === hint.suggestedOpcode);
                 if (suggestedBlock) {
                     suggestedSvgXml = captureSvgFromBlock(suggestedBlock);
                 } else {
@@ -960,8 +1178,8 @@ class Blocks extends React.Component {
     }
     handleDrop (dragInfo) {
         fetch(dragInfo.payload.bodyUrl)
-            .then(response => response.json())
-            .then(blocks => this.props.vm.shareBlocksToTarget(blocks, this.props.vm.editingTarget.id))
+            .then((response) => response.json())
+            .then((blocks) => this.props.vm.shareBlocksToTarget(blocks, this.props.vm.editingTarget.id))
             .then(() => {
                 this.props.vm.refreshWorkspace();
             });
@@ -1048,6 +1266,18 @@ Blocks.propTypes = {
     onActivateCustomProcedures: PropTypes.func,
     onOpenConnectionModal: PropTypes.func,
     onShowBlockHint: PropTypes.func,
+    onVerifyCurrentStep: PropTypes.func,
+    onCloseActivityModal: PropTypes.func,
+    onSetPreviewBlockSvgs: PropTypes.func,
+    previewBlockSvgs: PropTypes.arrayOf(PropTypes.shape({
+        opcode: PropTypes.string,
+        label: PropTypes.string,
+        svgXml: PropTypes.string
+    })),
+    currentStep: PropTypes.object,
+    allowedOpcodes: PropTypes.arrayOf(PropTypes.string),
+    activityModalOpen: PropTypes.bool,
+    captureRequestSeq: PropTypes.number,
     onOpenSoundRecorder: PropTypes.func,
     onRequestCloseCustomProcedures: PropTypes.func,
     onRequestCloseExtensionLibrary: PropTypes.func,
@@ -1101,25 +1331,34 @@ Blocks.defaultProps = {
     colorMode: DEFAULT_MODE
 };
 
-const mapStateToProps = state => ({
+const mapStateToProps = (state) => ({
     anyModalVisible: (
-        Object.keys(state.scratchGui.modals).some(key => state.scratchGui.modals[key]) ||
+        Object.keys(state.scratchGui.modals).some((key) => state.scratchGui.modals[key]) ||
         state.scratchGui.mode.isFullScreen
     ),
     extensionLibraryVisible: state.scratchGui.modals.extensionLibrary,
     isRtl: state.locales.isRtl,
     locale: state.locales.locale,
     messages: state.locales.messages,
-    toolboxXML: state.scratchGui.toolbox.toolboxXML,
+    toolboxXML: filterToolboxXML(
+        state.scratchGui.toolbox.toolboxXML,
+        (getCurrentStep(state) || {}).allowedCategories || null,
+        (getCurrentStep(state) || {}).allowedOpcodes || null
+    ),
+    allowedOpcodes: (getCurrentStep(state) || {}).allowedOpcodes || null,
+    previewBlockSvgs: state.scratchGui.activity.previewBlockSvgs || [],
+    currentStep: getCurrentStep(state),
+    activityModalOpen: state.scratchGui.activityModal.isOpen,
+    captureRequestSeq: state.scratchGui.activity.captureRequestSeq,
     customProceduresVisible: state.scratchGui.customProcedures.active,
     workspaceMetrics: state.scratchGui.workspaceMetrics,
     useCatBlocks: isTimeTravel2020(state) || state.scratchGui.settings.theme === CAT_BLOCKS_THEME
 });
 
-const mapDispatchToProps = dispatch => ({
-    onActivateColorPicker: callback => dispatch(activateColorPicker(callback)),
+const mapDispatchToProps = (dispatch) => ({
+    onActivateColorPicker: (callback) => dispatch(activateColorPicker(callback)),
     onActivateCustomProcedures: (data, callback) => dispatch(activateCustomProcedures(data, callback)),
-    onOpenConnectionModal: id => {
+    onOpenConnectionModal: (id) => {
         dispatch(setConnectionModalExtensionId(id));
         dispatch(openConnectionModal());
     },
@@ -1130,18 +1369,21 @@ const mapDispatchToProps = dispatch => ({
     onRequestCloseExtensionLibrary: () => {
         dispatch(closeExtensionLibrary());
     },
-    onRequestCloseCustomProcedures: data => {
+    onRequestCloseCustomProcedures: (data) => {
         dispatch(deactivateCustomProcedures(data));
     },
-    updateToolboxState: toolboxXML => {
+    updateToolboxState: (toolboxXML) => {
         dispatch(updateToolbox(toolboxXML));
     },
-    updateMetrics: metrics => {
+    updateMetrics: (metrics) => {
         dispatch(updateMetrics(metrics));
     },
-    onShowBlockHint: hint => {
+    onShowBlockHint: (hint) => {
         dispatch(showBlockHint(hint));
-    }
+    },
+    onVerifyCurrentStep: vm => dispatch(verifyCurrentStep(vm)),
+    onSetPreviewBlockSvgs: svgs => dispatch({type: SET_PREVIEW_BLOCK_SVGS, payload: svgs}),
+    onCloseActivityModal: () => dispatch({type: CLOSE_ACTIVITY_MODAL})
 });
 
 export {Blocks};

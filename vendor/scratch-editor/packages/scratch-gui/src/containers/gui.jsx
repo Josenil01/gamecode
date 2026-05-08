@@ -30,6 +30,14 @@ import {
 import {setPlatform} from '../reducers/platform';
 import {setDynamicAssets} from '../reducers/dynamic-assets';
 import {hideBlockHint} from '../reducers/block-hint';
+import {loadActivity} from '../reducers/activity-actions';
+import {closeActivityModal, setActivityModalSlide} from '../reducers/activity-modal';
+import {
+    ADVANCE_STEP,
+    REQUEST_CAPTURE_PREVIEWS,
+    getCurrentStep,
+    isLastStep as getIsLastStep
+} from '../reducers/activity';
 
 import FontLoaderHOC from '../lib/font-loader-hoc.jsx';
 import LocalizationHOC from '../lib/localization-hoc.jsx';
@@ -57,6 +65,7 @@ class GUI extends React.Component {
     componentDidMount () {
         this.props.onStorageInit(this.props.storage.scratchStorage);
         this.props.onVmInit(this.props.vm);
+        this.props.onLoadActivity('demo-activity-001'); // TODO: remover após validação
         this.props.storage.setProjectMetadata?.(this.props.projectId);
         if (this.props.platform) {
             this.props.setPlatform(this.props.platform);
@@ -165,7 +174,11 @@ GUI.propTypes = {
     userOwnsProject: PropTypes.bool,
     // TODO: Is this unused?
     hideTutorialProjects: PropTypes.bool,
-    vm: PropTypes.instanceOf(VM).isRequired
+    vm: PropTypes.instanceOf(VM).isRequired,
+    onLoadActivity: PropTypes.func, // TODO: remover após validação
+    onCloseActivityModal: PropTypes.func,
+    onSetActivityModalSlide: PropTypes.func,
+    onAdvanceActivityStep: PropTypes.func
 };
 
 GUI.defaultProps = {
@@ -206,7 +219,14 @@ const mapStateToProps = (state, ownProps) => {
         telemetryModalVisible: state.scratchGui.modals.telemetryModal,
         tipsLibraryVisible: state.scratchGui.modals.tipsLibrary,
         wrongBlockHint: state.scratchGui.blockHint,
-        vm: state.scratchGui.vm
+        vm: state.scratchGui.vm,
+        activityModal: Object.assign({}, state.scratchGui.activityModal, {
+            currentStep: getCurrentStep(state),
+            isLastStep: getIsLastStep(state),
+            lastVerifyMessage: state.scratchGui.activity.lastVerifyMessage,
+            previewBlockSvgs: state.scratchGui.activity.previewBlockSvgs,
+            captureRequestSeq: state.scratchGui.activity.captureRequestSeq
+        })
     };
 };
 
@@ -221,7 +241,12 @@ const mapDispatchToProps = dispatch => ({
     onRequestCloseCostumeLibrary: () => dispatch(closeCostumeLibrary()),
     onRequestCloseDebugModal: () => dispatch(closeDebugModal()),
     onCloseWrongBlockModal: () => dispatch(hideBlockHint()),
-    onRequestCloseTelemetryModal: () => dispatch(closeTelemetryModal())
+    onRequestCloseTelemetryModal: () => dispatch(closeTelemetryModal()),
+    onLoadActivity: activityId => dispatch(loadActivity(activityId)), // TODO: remover após validação
+    onCloseActivityModal: () => dispatch(closeActivityModal()),
+    onSetActivityModalSlide: slide => dispatch(setActivityModalSlide(slide)),
+    onAdvanceActivityStep: () => dispatch({type: ADVANCE_STEP}),
+    onRequestCaptureBlockPreviews: () => dispatch({type: REQUEST_CAPTURE_PREVIEWS})
 });
 
 const ConnectedGUI = injectIntl(connect(

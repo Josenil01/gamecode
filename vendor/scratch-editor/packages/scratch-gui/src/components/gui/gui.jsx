@@ -44,6 +44,7 @@ import costumesIcon from './icon--costumes.svg';
 import soundsIcon from './icon--sounds.svg';
 import DebugModal from '../debug-modal/debug-modal.jsx';
 import WrongBlockModal from '../wrong-block-modal/wrong-block-modal.jsx';
+import ActivityModal from '../activity-modal/activity-modal.jsx';
 import {setPlatform} from '../../reducers/platform.js';
 import {setTheme} from '../../reducers/settings.js';
 import {PLATFORM} from '../../lib/platform.js';
@@ -149,6 +150,11 @@ const GUIComponent = props => {
         onDebugModalClose,
         wrongBlockHint,
         onCloseWrongBlockModal,
+        activityModal,
+        onCloseActivityModal,
+        onSetActivityModalSlide,
+        onAdvanceActivityStep,
+        onRequestCaptureBlockPreviews,
         onTutorialSelect,
         enableCommunity,
         hasActiveMembership,
@@ -335,6 +341,21 @@ const GUIComponent = props => {
                             detectedSvgXml={wrongBlockHint.detectedSvgXml}
                             suggestedSvgXml={wrongBlockHint.suggestedSvgXml}
                             onClose={onCloseWrongBlockModal}
+                        />
+                    ) : null}
+                    {activityModal ? (
+                        <ActivityModal
+                            isOpen={activityModal.isOpen}
+                            slide={activityModal.slide}
+                            currentStep={activityModal.currentStep}
+                            isLastStep={activityModal.isLastStep}
+                            lastVerifyMessage={activityModal.lastVerifyMessage}
+                            previewBlockSvgs={activityModal.previewBlockSvgs}
+                            captureRequestSeq={activityModal.captureRequestSeq}
+                            onClose={onCloseActivityModal}
+                            onSetSlide={onSetActivityModalSlide}
+                            onAdvanceStep={onAdvanceActivityStep}
+                            onRequestCaptureBlockPreviews={onRequestCaptureBlockPreviews}
                         />
                     ) : null}
                     {backdropLibraryVisible ? (
@@ -628,6 +649,19 @@ GUIComponent.propTypes = {
         suggestedSvgXml: PropTypes.string
     }),
     onCloseWrongBlockModal: PropTypes.func,
+    activityModal: PropTypes.shape({
+        isOpen: PropTypes.bool,
+        slide: PropTypes.string,
+        currentStep: PropTypes.object,
+        isLastStep: PropTypes.bool,
+        lastVerifyMessage: PropTypes.string,
+        previewBlockSvgs: PropTypes.array,
+        captureRequestSeq: PropTypes.number
+    }),
+    onCloseActivityModal: PropTypes.func,
+    onSetActivityModalSlide: PropTypes.func,
+    onAdvanceActivityStep: PropTypes.func,
+    onRequestCaptureBlockPreviews: PropTypes.func,
     onTutorialSelect: PropTypes.func,
     enableCommunity: PropTypes.bool,
     isCreating: PropTypes.bool,

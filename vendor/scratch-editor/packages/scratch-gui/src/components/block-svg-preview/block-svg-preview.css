@@ -1,0 +1,23 @@
+/* Container for a cloned workspace SVG block */
+.svgPreview {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
+    overflow: visible;
+    pointer-events: none;
+}
+
+/* Scale down large blocks without distorting */
+.svgPreview svg {
+    max-width: 100%;
+    max-height: 120px;
+    object-fit: contain;
+}
+
+/* Fallback when SVG is not available */
+.blockName {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1f2937;
+}

@@ -31,12 +31,23 @@ import toolboxReducer, {toolboxInitialState} from './toolbox';
 import vmReducer, {vmInitialState} from './vm';
 import vmStatusReducer, {vmStatusInitialState} from './vm-status';
 import workspaceMetricsReducer, {workspaceMetricsInitialState} from './workspace-metrics';
+import activityReducer, {activityInitialState} from './activity';
+import activityModalReducer, {activityModalInitialState} from './activity-modal';
 import throttle from 'redux-throttle';
+
+// Inline thunk middleware — avoids external redux-thunk dependency
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const thunk: any = (store: any) => (next: any) => (action: any) => {
+    if (typeof action === 'function') {
+        return action(store.dispatch, store.getState);
+    }
+    return next(action);
+};
 
 import decks from '../lib/libraries/decks/index.jsx';
 import {GUIConfig} from '../gui-config';
 
-const guiMiddleware = compose(applyMiddleware(throttle(300, {leading: true, trailing: true})));
+const guiMiddleware = compose(applyMiddleware(thunk, throttle(300, {leading: true, trailing: true})));
 
 const buildInitialState = (config: GUIConfig) => ({
     alerts: alertsInitialState,
@@ -71,7 +82,9 @@ const buildInitialState = (config: GUIConfig) => ({
     toolbox: toolboxInitialState,
     vm: vmInitialState(config),
     vmStatus: vmStatusInitialState,
-    workspaceMetrics: workspaceMetricsInitialState
+    workspaceMetrics: workspaceMetricsInitialState,
+    activity: activityInitialState,
+    activityModal: activityModalInitialState
 });
 
 const initPlayer = function (currentState) {
@@ -182,7 +195,9 @@ const guiReducer = combineReducers({
     toolbox: toolboxReducer,
     vm: vmReducer,
     vmStatus: vmStatusReducer,
-    workspaceMetrics: workspaceMetricsReducer
+    workspaceMetrics: workspaceMetricsReducer,
+    activity: activityReducer,
+    activityModal: activityModalReducer
 });
 
 export {

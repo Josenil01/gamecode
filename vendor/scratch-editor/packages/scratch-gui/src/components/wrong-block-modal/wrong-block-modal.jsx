@@ -2,33 +2,7 @@ import React from 'react';
 import ReactModal from 'react-modal';
 import PropTypes from 'prop-types';
 import styles from './wrong-block-modal.css';
-
-/**
- * Renderiza um bloco Scratch como SVG inline.
- * Usa dangerouslySetInnerHTML — seguro aqui porque o SVG vem do proprio DOM do workspace
- * (nunca de entrada do usuario). O HTML e' gerado internamente pelo scratch-blocks.
- *
- * AVISO CONHECIDO: referencias `url(#filter)` do workspace principal nao resolvem
- * dentro do modal (filtros definidos em outro SVG). Glows e alguns efeitos ficarao ausentes.
- */
-const BlockSvgPreview = function ({svgXml, label}) {
-    if (svgXml) {
-        return (
-            <div
-                className={styles.svgPreview}
-                /* eslint-disable-next-line react/no-danger */
-                dangerouslySetInnerHTML={{__html: svgXml}}
-            />
-        );
-    }
-    // Fallback para texto quando SVG nao esta disponivel
-    return <span className={styles.blockName}>{label}</span>;
-};
-
-BlockSvgPreview.propTypes = {
-    svgXml: PropTypes.string,
-    label: PropTypes.string
-};
+import BlockSvgPreview from '../block-svg-preview/block-svg-preview';
 
 const WrongBlockModal = function ({
     isOpen, message,

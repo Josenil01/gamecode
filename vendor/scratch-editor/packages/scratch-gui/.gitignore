@@ -11,7 +11,7 @@ npm-*
 /test-results
 
 # Build
-/build
+# /build  -- tracked for Vercel static deploy
 /dist
 /.opt-in
 

@@ -1,0 +1,172 @@
+.overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1400;
+}
+
+.container {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.22);
+    max-width: 600px;
+    width: 95vw;
+    outline: none;
+    overflow: hidden;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+}
+
+.header {
+    padding: 1.2rem 1.6rem 1rem;
+    display: flex;
+    align-items: center;
+}
+
+.headerVideo {
+    background: #4c97ff;
+}
+
+.headerInstruction {
+    background: #9966ff;
+}
+
+.headerVerify {
+    background: #ffab19;
+}
+
+.headerSuccess {
+    background: #59c059;
+}
+
+.headerIncomplete {
+    background: #e05c2a;
+}
+
+.title {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #fff;
+}
+
+.body {
+    padding: 1.4rem 1.6rem 1rem;
+    flex: 1;
+    overflow-y: auto;
+}
+
+.instructions {
+    font-size: 1rem;
+    color: #374151;
+    line-height: 1.7;
+    margin: 0 0 1.2rem;
+    white-space: pre-wrap;
+}
+
+.verifyText {
+    font-size: 1rem;
+    color: #374151;
+    line-height: 1.7;
+}
+
+.verifyErrorText {
+    font-size: 0.95rem;
+    color: #b91c1c;
+    background: #fef2f2;
+    border: 1.5px solid #fca5a5;
+    border-radius: 8px;
+    padding: 0.65rem 1rem;
+    margin: 0 0 0.8rem;
+    line-height: 1.6;
+}
+
+.successText {
+    font-size: 1.05rem;
+    color: #374151;
+    line-height: 1.7;
+    font-weight: 600;
+}
+
+.incompleteText {
+    font-size: 1rem;
+    color: #92400e;
+    background: #fffbeb;
+    border: 1.5px solid #fcd34d;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    line-height: 1.7;
+    margin: 0;
+}
+
+.blockPreviewList {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.8rem;
+}
+
+.blockPreview {
+    background: #e8d5ff;
+    border: 1.5px solid #9966ff;
+    border-radius: 8px;
+    padding: 0.4rem 0.85rem;
+    display: flex;
+    align-items: center;
+}
+
+.blockLabel {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #5c00d2;
+}
+
+.video {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border: none;
+    border-radius: 4px;
+    display: block;
+    margin-bottom: 0.8rem;
+}
+
+.footer {
+    padding: 1rem 1.6rem 1.4rem;
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    border-top: 1px solid #e5e7eb;
+}
+
+.primaryButton {
+    background: #4c97ff;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 0.55rem 1.3rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.primaryButton:hover {
+    background: #3373cc;
+}
+
+.secondaryButton {
+    background: transparent;
+    color: #6b7280;
+    border: 1.5px solid #d1d5db;
+    border-radius: 8px;
+    padding: 0.55rem 1.3rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.secondaryButton:hover {
+    background: #f3f4f6;
+}
