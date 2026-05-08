@@ -4,7 +4,7 @@
   "steps": [
     {
       "stepId": 1,
-      "videoUrl": "https://youtu.be/s-tPZ0gHe50",
+      "videoUrl": "https://www.youtube.com/watch?v=s-tPZ0gHe50",
       "instructions": "Chegou a hora de dar vida às letras! No Scratch, cada letra do teu nome será um ator com superpoderes independentes. Prepara-te para uma explosão de cores , giros  e efeitos especiais!",
       "allowedCategories": [],
       "allowedOpcodes": [],
@@ -19,6 +19,8 @@
       "allowedCategories": [],
       "allowedOpcodes": [],
       "requiredOpcodes": [],
+      "requiredRemoveSprites": ["Gato"],
+      "minSpriteCount": 1,
       "targetSpriteId": "Gato",
       "previewBlocks": []
     },
