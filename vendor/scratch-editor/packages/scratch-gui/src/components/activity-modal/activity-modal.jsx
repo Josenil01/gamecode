@@ -1,8 +1,32 @@
-import React, {useEffect} from 'react';
+import React, {useEffect, useRef} from 'react';
 import ReactModal from 'react-modal';
 import PropTypes from 'prop-types';
 import styles from './activity-modal.css';
 import BlockSvgPreview from '../block-svg-preview/block-svg-preview';
+
+// Extrai o ID de URLs YouTube embed ou watch
+const getYouTubeVideoId = url => {
+    if (!url) return null;
+    const m = url.match(/youtube\.com\/(?:embed\/|watch\?v=)([^?&#/]+)|youtu\.be\/([^?&#/]+)/);
+    return m ? (m[1] || m[2]) : null;
+};
+
+// Carrega a YouTube IFrame API uma única vez e notifica todos os callbacks
+const _ytCallbacks = [];
+const _loadYouTubeAPI = cb => {
+    if (window.YT && window.YT.Player) { cb(); return; }
+    _ytCallbacks.push(cb);
+    if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
+        const tag = document.createElement('script');
+        tag.src = 'https://www.youtube.com/iframe_api';
+        document.head.appendChild(tag);
+    }
+    const prev = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => {
+        if (typeof prev === 'function') prev();
+        _ytCallbacks.splice(0).forEach(fn => fn());
+    };
+};
 
 const SLIDE_TITLES = {
     video: 'Atividade',
@@ -32,6 +56,9 @@ const ActivityModal = function ({
     onAdvanceStep,
     onRequestCaptureBlockPreviews
 }) {
+    const ytPlayerRef = useRef(null);
+    const ytContainerRef = useRef(null);
+
     // When slide is 'video' but step has no videoUrl, skip directly to instruction.
     // Also request capture here since "Começar" will never be shown.
     useEffect(() => {
@@ -40,6 +67,54 @@ const ActivityModal = function ({
             onSetSlide('instruction');
         }
     }, [isOpen, slide, currentStep, onSetSlide, onRequestCaptureBlockPreviews]);
+
+    // YouTube player: autoplay ao abrir, volta ao thumbnail ao terminar
+    useEffect(() => {
+        if (!isOpen || slide !== 'video' || !currentStep) return;
+        const videoId = getYouTubeVideoId(currentStep.videoUrl);
+        if (!videoId || !ytContainerRef.current) return;
+
+        const initPlayer = () => {
+            if (ytPlayerRef.current) {
+                ytPlayerRef.current.destroy();
+                ytPlayerRef.current = null;
+            }
+            // Cria um div filho para o YouTube substituir (evita conflito com React)
+            ytContainerRef.current.innerHTML = '';
+            const target = document.createElement('div');
+            ytContainerRef.current.appendChild(target);
+
+            ytPlayerRef.current = new window.YT.Player(target, {
+                videoId,
+                width: '100%',
+                height: '100%',
+                playerVars: {autoplay: 1, rel: 0, modestbranding: 1},
+                events: {
+                    onStateChange: event => {
+                        // Ao terminar: volta ao início e pausa (mostra thumbnail)
+                        if (event.data === window.YT.PlayerState.ENDED) {
+                            event.target.seekTo(0);
+                            event.target.pauseVideo();
+                        }
+                    }
+                }
+            });
+        };
+
+        if (window.YT && window.YT.Player) {
+            initPlayer();
+        } else {
+            _loadYouTubeAPI(initPlayer);
+        }
+
+        return () => {
+            if (ytPlayerRef.current) {
+                ytPlayerRef.current.destroy();
+                ytPlayerRef.current = null;
+            }
+        };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen, slide, currentStep && currentStep.videoUrl]);
 
     const handleGoToInstruction = function () {
         if (onRequestCaptureBlockPreviews) onRequestCaptureBlockPreviews();
@@ -54,6 +129,16 @@ const ActivityModal = function ({
     const renderBody = function () {
         if (slide === 'video') {
             if (!currentStep.videoUrl) return null;
+            const videoId = getYouTubeVideoId(currentStep.videoUrl);
+            if (videoId) {
+                // Container gerenciado pelo React; o YouTube API cria o iframe dentro
+                return (
+                    <div
+                        ref={ytContainerRef}
+                        className={styles.video}
+                    />
+                );
+            }
             return (
                 <iframe
                     className={styles.video}
