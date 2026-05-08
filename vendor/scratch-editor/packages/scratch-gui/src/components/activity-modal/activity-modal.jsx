@@ -1,4 +1,4 @@
-import React, {useEffect, useRef} from 'react';
+import React, {useEffect, useState} from 'react';
 import ReactModal from 'react-modal';
 import PropTypes from 'prop-types';
 import styles from './activity-modal.css';
@@ -11,22 +11,9 @@ const getYouTubeVideoId = url => {
     return m ? (m[1] || m[2]) : null;
 };
 
-// Carrega a YouTube IFrame API uma única vez e notifica todos os callbacks
-const _ytCallbacks = [];
-const _loadYouTubeAPI = cb => {
-    if (window.YT && window.YT.Player) { cb(); return; }
-    _ytCallbacks.push(cb);
-    if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
-        const tag = document.createElement('script');
-        tag.src = 'https://www.youtube.com/iframe_api';
-        document.head.appendChild(tag);
-    }
-    const prev = window.onYouTubeIframeAPIReady;
-    window.onYouTubeIframeAPIReady = () => {
-        if (typeof prev === 'function') prev();
-        _ytCallbacks.splice(0).forEach(fn => fn());
-    };
-};
+// Build a stable embed URL that works even when YouTube IFrame API is blocked.
+const getYouTubeEmbedUrl = videoId =>
+    `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&rel=0&modestbranding=1`;
 
 const SLIDE_TITLES = {
     video: 'Atividade',
@@ -56,9 +43,6 @@ const ActivityModal = function ({
     onAdvanceStep,
     onRequestCaptureBlockPreviews
 }) {
-    const ytPlayerRef = useRef(null);
-    const ytContainerRef = useRef(null);
-
     // When slide is 'video' but step has no videoUrl, skip directly to instruction.
     // Also request capture here since "Começar" will never be shown.
     useEffect(() => {
@@ -68,53 +52,34 @@ const ActivityModal = function ({
         }
     }, [isOpen, slide, currentStep, onSetSlide, onRequestCaptureBlockPreviews]);
 
-    // YouTube player: autoplay ao abrir, volta ao thumbnail ao terminar
+    // ── Block-ready gate ──────────────────────────────────────────────────────
+    // Keep modal visually hidden until two animation frames confirm the SVGs
+    // have been painted. Hooks must come before any early return.
+    const hasBlockPreviews = slide === 'instruction' && currentStep && (
+        (previewBlockSvgs && previewBlockSvgs.length > 0) ||
+        ((currentStep.previewBlocks || []).length > 0)
+    );
+    const [blocksReady, setBlocksReady] = useState(false);
     useEffect(() => {
-        if (!isOpen || slide !== 'video' || !currentStep) return;
-        const videoId = getYouTubeVideoId(currentStep.videoUrl);
-        if (!videoId || !ytContainerRef.current) return;
-
-        const initPlayer = () => {
-            if (ytPlayerRef.current) {
-                ytPlayerRef.current.destroy();
-                ytPlayerRef.current = null;
-            }
-            // Cria um div filho para o YouTube substituir (evita conflito com React)
-            ytContainerRef.current.innerHTML = '';
-            const target = document.createElement('div');
-            ytContainerRef.current.appendChild(target);
-
-            ytPlayerRef.current = new window.YT.Player(target, {
-                videoId,
-                width: '100%',
-                height: '100%',
-                playerVars: {autoplay: 1, rel: 0, modestbranding: 1},
-                events: {
-                    onStateChange: event => {
-                        // Ao terminar: volta ao início e pausa (mostra thumbnail)
-                        if (event.data === window.YT.PlayerState.ENDED) {
-                            event.target.seekTo(0);
-                            event.target.pauseVideo();
-                        }
-                    }
-                }
-            });
-        };
-
-        if (window.YT && window.YT.Player) {
-            initPlayer();
-        } else {
-            _loadYouTubeAPI(initPlayer);
+        if (!isOpen || slide !== 'instruction') {
+            setBlocksReady(false);
+            return;
         }
-
+        if (!hasBlockPreviews) {
+            setBlocksReady(true);
+            return;
+        }
+        // Double-RAF: first frame → DOM nodes exist; second frame → browser painted
+        let raf2;
+        const raf1 = requestAnimationFrame(() => {
+            raf2 = requestAnimationFrame(() => setBlocksReady(true));
+        });
         return () => {
-            if (ytPlayerRef.current) {
-                ytPlayerRef.current.destroy();
-                ytPlayerRef.current = null;
-            }
+            cancelAnimationFrame(raf1);
+            cancelAnimationFrame(raf2);
         };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isOpen, slide, currentStep && currentStep.videoUrl]);
+    }, [isOpen, slide, hasBlockPreviews]);
+    // ─────────────────────────────────────────────────────────────────────────
 
     const handleGoToInstruction = function () {
         if (onRequestCaptureBlockPreviews) onRequestCaptureBlockPreviews();
@@ -131,11 +96,14 @@ const ActivityModal = function ({
             if (!currentStep.videoUrl) return null;
             const videoId = getYouTubeVideoId(currentStep.videoUrl);
             if (videoId) {
-                // Container gerenciado pelo React; o YouTube API cria o iframe dentro
+                // Use embed iframe directly so video still loads if YouTube API script is blocked.
                 return (
-                    <div
-                        ref={ytContainerRef}
+                    <iframe
                         className={styles.video}
+                        src={getYouTubeEmbedUrl(videoId)}
+                        allow="autoplay; encrypted-media; picture-in-picture"
+                        allowFullScreen
+                        title="Video da atividade"
                     />
                 );
             }
@@ -143,43 +111,33 @@ const ActivityModal = function ({
                 <iframe
                     className={styles.video}
                     src={currentStep.videoUrl}
+                    allow="autoplay; encrypted-media; picture-in-picture"
                     allowFullScreen
                     title="Video da atividade"
                 />
             );
         }
         if (slide === 'instruction') {
-            const svgsToUse = (previewBlockSvgs && previewBlockSvgs.length > 0) ?
-                previewBlockSvgs :
-                null;
-            const fallbackBlocks = currentStep.previewBlocks || [];
+            const stepBlocks = currentStep.previewBlocks || [];
+            const svgByOpcode = new Map(
+                (previewBlockSvgs || []).map(item => [item.opcode, item.svgXml || null])
+            );
             return (
                 <div>
                     <p className={styles.instructions}>{currentStep.instructions}</p>
-                    {(svgsToUse || fallbackBlocks.length > 0) && (
+                    {stepBlocks.length > 0 && (
                         <div className={styles.blockPreviewList}>
-                            {svgsToUse ? (
-                                svgsToUse.map(b => (
-                                    <div
-                                        key={b.opcode}
-                                        className={styles.blockPreview}
-                                    >
-                                        <BlockSvgPreview
-                                            svgXml={b.svgXml}
-                                            label={b.label}
-                                        />
-                                    </div>
-                                ))
-                            ) : (
-                                fallbackBlocks.map(b => (
-                                    <div
-                                        key={b.opcode}
-                                        className={styles.blockPreview}
-                                    >
-                                        <span className={styles.blockLabel}>{b.label}</span>
-                                    </div>
-                                ))
-                            )}
+                            {stepBlocks.map(b => (
+                                <div
+                                    key={b.opcode}
+                                    className={styles.blockPreview}
+                                >
+                                    <BlockSvgPreview
+                                        svgXml={svgByOpcode.get(b.opcode) || null}
+                                        label={b.label}
+                                    />
+                                </div>
+                            ))}
                         </div>
                     )}
                 </div>
@@ -198,11 +156,14 @@ const ActivityModal = function ({
             );
         }
         if (slide === 'success') {
+            const customMsg = currentStep.successMessage;
+            const fallbackMsg = isLastStep ?
+                'Incrível! Você concluiu toda a atividade!' :
+                'Muito bem! Você completou esta etapa!';
+            const displayMsg = customMsg || fallbackMsg;
             return (
                 <p className={styles.successText}>
-                    {isLastStep ?
-                        'Incrível! Você concluiu toda a atividade!' :
-                        'Muito bem! Você completou esta etapa!'}
+                    {displayMsg}
                 </p>
             );
         }
@@ -231,12 +192,14 @@ const ActivityModal = function ({
             );
         }
         if (slide === 'instruction') {
+            const goToNextStep = Boolean(currentStep.nextStepButton);
             return (
                 <button
                     className={styles.primaryButton}
-                    onClick={onClose}
+                    // eslint-disable-next-line react/jsx-no-bind
+                    onClick={goToNextStep ? handleNextStep : onClose}
                 >
-                    {'Fechar e programar'}
+                    {goToNextStep ? 'Ir para a próxima etapa' : 'Fechar e programar'}
                 </button>
             );
         }
@@ -284,21 +247,30 @@ const ActivityModal = function ({
         return null;
     };
 
+    const waitingForBlocks = hasBlockPreviews && !blocksReady;
+
     return (
         <ReactModal
             isOpen={isOpen}
             onRequestClose={onClose}
-            className={styles.container}
-            overlayClassName={styles.overlay}
+            closeTimeoutMS={220}
+            className={[styles.container, waitingForBlocks ? styles.invisible : ''].join(' ')}
+            overlayClassName={[styles.overlay, waitingForBlocks ? styles.invisible : ''].join(' ')}
             contentLabel={SLIDE_TITLES[slide] || 'Atividade'}
         >
             <div className={[styles.header, HEADER_STYLES[slide]].join(' ')}>
                 <span className={styles.title}>{SLIDE_TITLES[slide]}</span>
             </div>
-            <div className={styles.body}>
+            <div
+                key={slide}
+                className={styles.body}
+            >
                 {renderBody()}
             </div>
-            <div className={styles.footer}>
+            <div
+                key={`footer-${slide}`}
+                className={styles.footer}
+            >
                 {renderFooter()}
             </div>
         </ReactModal>
@@ -311,6 +283,8 @@ ActivityModal.propTypes = {
     currentStep: PropTypes.shape({
         videoUrl: PropTypes.string,
         instructions: PropTypes.string,
+        successMessage: PropTypes.string,
+        nextStepButton: PropTypes.bool,
         previewBlocks: PropTypes.arrayOf(PropTypes.shape({
             opcode: PropTypes.string,
             label: PropTypes.string

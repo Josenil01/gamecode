@@ -4,8 +4,10 @@
   "steps": [
     {
       "stepId": 1,
-      "videoUrl": "https://youtu.be/s-tPZ0gHe50",
+      "videoUrl": "https://www.youtube.com/watch?v=s-tPZ0gHe50",
       "instructions": "Chegou a hora de dar vida às letras! No Scratch, cada letra do teu nome será um ator com superpoderes independentes. Prepara-te para uma explosão de cores , giros  e efeitos especiais!",
+      "successMessage": "Muito bem! Você completou esta etapa!",
+      "nextStepButton": true,
       "allowedCategories": [],
       "allowedOpcodes": [],
       "requiredOpcodes": [],
@@ -15,21 +17,25 @@
     {
       "stepId": 2,
       "videoUrl": null,
+      "successMessage": "Excelente! Sua primeira letra está pronta!",
       "instructions": "Começe removendo o gato!\nColoque  a primeira letra do seu nome!",
       "allowedCategories": [],
       "allowedOpcodes": [],
       "requiredOpcodes": [],
+      "requiredRemoveSprites": ["Gato"],
+      "minSpriteCount": 1,
       "targetSpriteId": "Gato",
       "previewBlocks": []
     },
     {
       "stepId": 3,
       "videoUrl": null,
+      "successMessage": "Parabéns! A rotação ficou perfeita!",
       "instructions": "Queremos que a letra dê um giro completo (360 graus) de forma suave quando a bandeira for clicada. Para isso faça o calculo 360/15, para descobrir quantas vezes o comando repita precisa ser executado.   Nessa etapa você vai precisar dos seguintes blocos. ",
       "allowedCategories": [
+        "motion",
         "events",
-        "control",
-        "motion"
+        "control"
       ],
       "allowedOpcodes": [
         "event_whenflagclicked",
@@ -59,6 +65,7 @@
     },
     {
       "stepId": 4,
+      "successMessage": "Incrível! Você concluiu toda a atividade!",
       "videoUrl": null,
       "instructions": "Agora adicione a segunda letra do seu nome. A letra deve crescer assustadoramente quando bandeira for clicada  e voltar ao normal logo a seguir e repetir esse comportamento infinitamente.  ",
       "allowedCategories": [
