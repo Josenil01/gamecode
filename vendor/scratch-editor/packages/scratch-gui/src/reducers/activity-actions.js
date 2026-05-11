@@ -4,9 +4,37 @@ import {
     LOAD_ACTIVITY_SUCCESS,
     LOAD_ACTIVITY_ERROR,
     SET_VERIFY_MESSAGE,
-    getCurrentStep
+    getCurrentStep,
+    isLastStep
 } from './activity';
 import {OPEN_ACTIVITY_MODAL} from './activity-modal';
+import {ADVANCE_STEP} from './activity';
+
+// Notifies the parent window (apps/web) that the current step was completed.
+// apps/web listens for this message and sends progress + the .sb3 to helloyotta.
+const notifyStepCompleted = function (dispatch, getState) {
+    const state = getState();
+    const step = getCurrentStep(state);
+    const isLast = isLastStep(state);
+    const activityId = state.scratchGui.activity.activityId;
+    dispatch({type: ADVANCE_STEP});
+    if (typeof window !== 'undefined' && window.parent && window.parent !== window) {
+        window.parent.postMessage({
+            type: 'hyscratch:step-completed',
+            source: 'scratch-gui',
+            stepId: step ? step.stepId : null,
+            activityId: activityId ?? null,
+            isLast,
+            at: Date.now()
+        }, '*');
+    }
+};
+
+// Thunk: advance step from the modal "next" button (nextStepButton steps).
+// Also notifies the parent so apps/web can save progress to helloyotta.
+export const advanceActivityStep = () => (dispatch, getState) => {
+    notifyStepCompleted(dispatch, getState);
+};
 
 // Collects opcodes reachable from a hat block chain (ignores orphan/shadow blocks).
 const getConnectedOpcodes = function (vm) {
@@ -145,6 +173,7 @@ export const verifyCurrentStep = vm => (dispatch, getState) => {
 
     const required = step.requiredOpcodes || [];
     if (required.length === 0) {
+        notifyStepCompleted(dispatch, getState);
         dispatch({type: OPEN_ACTIVITY_MODAL, slide: 'success'});
         return;
     }
@@ -153,6 +182,7 @@ export const verifyCurrentStep = vm => (dispatch, getState) => {
     const missing = required.filter(opcode => !present.has(opcode));
 
     if (missing.length === 0) {
+        notifyStepCompleted(dispatch, getState);
         dispatch({type: OPEN_ACTIVITY_MODAL, slide: 'success'});
     } else {
         const missingLabels = missing.map(opcode => {

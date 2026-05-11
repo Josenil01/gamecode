@@ -2,6 +2,11 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import DesafioScratch from "./components/DesafioScratch";
 
 export default function App() {
+  // ── Auth state ────────────────────────────────────────────────────────────
+  const [authStatus, setAuthStatus] = useState("loading"); // 'loading' | 'authorized' | 'denied'
+  const [authStudent, setAuthStudent] = useState(null); // { token, studentId, studentName }
+  // ─────────────────────────────────────────────────────────────────────────
+
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [preferLocalEditor, setPreferLocalEditor] = useState(true);
   const [editorConnectionStatus, setEditorConnectionStatus] = useState("desconectado");
@@ -12,6 +17,12 @@ export default function App() {
   const [evaluationInsights, setEvaluationInsights] = useState(null);
   const [importedFileName, setImportedFileName] = useState("");
   const [importedFile, setImportedFile] = useState(null);
+
+  // Tracks stepIds already reported to helloyotta in this session
+  const completedStepsRef = useRef([]);
+  // Pending step-completed: { stepId, activityId, isLast } waiting for project-data response
+  const pendingProgressRef = useRef(null);
+
   const editorIframeRef = useRef(null);
 
   const localEditorUrl = "http://localhost:8601/";
@@ -22,6 +33,45 @@ export default function App() {
     [preferLocalEditor]
   );
   const apiBaseUrl = useMemo(() => import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3001", []);
+  const helloyottaProgressUrl = useMemo(
+    () => import.meta.env.VITE_HELLOYOTTA_PROGRESS_URL ?? "https://aluno.helloyotta.com/api/student-progress",
+    []
+  );
+
+  // ── Auth: ler ?token= da URL e validar na API ────────────────────────────
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("token");
+
+    // Remove token da URL (evitar histórico e cópia acidental)
+    if (token) {
+      const clean = window.location.pathname + window.location.hash;
+      window.history.replaceState({}, "", clean);
+    }
+
+    if (!token) {
+      setAuthStatus("denied");
+      return;
+    }
+
+    fetch(`${apiBaseUrl}/auth/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.ok) {
+          setAuthStudent({ token, studentId: data.studentId, studentName: data.studentName });
+          setAuthStatus("authorized");
+        } else {
+          setAuthStatus("denied");
+        }
+      })
+      .catch(() => setAuthStatus("denied"));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // ─────────────────────────────────────────────────────────────────────────
 
   useEffect(() => {
     const onEditorMessage = (event) => {
@@ -61,6 +111,15 @@ export default function App() {
           return;
         }
 
+        // ── Progresso pendente: enviar ao helloyotta ─────────────────────
+        if (pendingProgressRef.current) {
+          const { stepId, activityId, isLast } = pendingProgressRef.current;
+          pendingProgressRef.current = null;
+          void sendProgressToHelloyotta({ stepId, activityId, isLast, projectDataBase64 });
+          return; // não faz download automático neste caso
+        }
+        // ────────────────────────────────────────────────────────────────
+
         try {
           const blob = base64ToBlob(projectDataBase64, "application/x.scratch.sb3");
           downloadBlob(blob, fileName);
@@ -74,6 +133,24 @@ export default function App() {
           logFrontend("error", "Falha ao converter projeto exportado para download.");
         }
       }
+
+      // ── Step concluído: capturar .sb3 e enviar ao helloyotta ───────────
+      if (messageType === "hyscratch:step-completed") {
+        const { stepId, activityId, isLast } = event.data;
+        if (!stepId) return;
+        pendingProgressRef.current = { stepId, activityId, isLast: !!isLast };
+        if (editorIframeRef.current?.contentWindow) {
+          editorIframeRef.current.contentWindow.postMessage(
+            { type: "hyscratch:get-project", source: "hyscratch-web", at: Date.now() },
+            "*"
+          );
+        } else {
+          // Sem iframe disponível: envia sem o .sb3
+          pendingProgressRef.current = null;
+          void sendProgressToHelloyotta({ stepId, activityId, isLast: !!isLast, projectDataBase64: null });
+        }
+      }
+      // ────────────────────────────────────────────────────────────────
     };
 
     window.addEventListener("message", onEditorMessage);
@@ -201,15 +278,16 @@ export default function App() {
   };
 
   const evaluateProjectWithApi = async (projectDataBase64) => {
+    const headers = { "Content-Type": "application/json" };
+    if (authStudent?.token) headers["Authorization"] = `Bearer ${authStudent.token}`;
+
     try {
       setEvaluationStatus("avaliando");
       setEvaluationFeedback("Enviando projeto para avaliacao...");
 
       const response = await fetch(`${apiBaseUrl}/evaluate/project`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
         body: JSON.stringify({ projectDataBase64 }),
       });
 
@@ -229,6 +307,51 @@ export default function App() {
       logFrontend("error", `Falha na avaliacao automatica: ${error?.message || "erro desconhecido"}`);
     }
   };
+
+  // ── Envio de progresso ao helloyotta ─────────────────────────────────────
+  const sendProgressToHelloyotta = async ({ stepId, activityId, isLast, projectDataBase64 }) => {
+    if (!authStudent) {
+      logFrontend("warn", "Progresso nao enviado: aluno nao autenticado.");
+      return;
+    }
+
+    if (!completedStepsRef.current.includes(stepId)) {
+      completedStepsRef.current = [...completedStepsRef.current, stepId];
+    }
+
+    const payload = {
+      studentId: authStudent.studentId,
+      activityId: activityId ?? "unknown",
+      stepId,
+      completedSteps: completedStepsRef.current,
+      completedAt: new Date().toISOString(),
+      activityCompleted: !!isLast,
+      ...(projectDataBase64 ? { projectBase64: projectDataBase64 } : {}),
+    };
+
+    const MAX_RETRIES = 3;
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const res = await fetch(helloyottaProgressUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${authStudent.token}`,
+          },
+          body: JSON.stringify(payload),
+        });
+        if (res.ok) {
+          logFrontend("info", `Progresso step ${stepId} enviado ao helloyotta (tentativa ${attempt}).`);
+          return;
+        }
+        logFrontend("warn", `helloyotta retornou ${res.status} ao salvar progresso (tentativa ${attempt}).`);
+      } catch (err) {
+        logFrontend("warn", `Falha ao enviar progresso step ${stepId} (tentativa ${attempt}): ${err?.message}`);
+      }
+    }
+    logFrontend("error", `Nao foi possivel enviar progresso do step ${stepId} apos ${MAX_RETRIES} tentativas.`);
+  };
+  // ─────────────────────────────────────────────────────────────────────────
 
   const onExportSb3 = () => {
     if (preferLocalEditor && editorIframeRef.current?.contentWindow) {
@@ -311,8 +434,45 @@ export default function App() {
         margin: "0 auto",
       }}
     >
-      <h1>hyScratch MVP</h1>
-      <p>Desafio 01: abra o editor para iniciar a atividade no Scratch.</p>
+      {/* ── Auth Gate ─────────────────────────────────────────────────── */}
+      {authStatus === "loading" && (
+        <div style={{ textAlign: "center", marginTop: "4rem", color: "#334155" }}>
+          <p style={{ fontSize: "1.2rem" }}>Verificando acesso...</p>
+        </div>
+      )}
+
+      {authStatus === "denied" && (
+        <div style={{ textAlign: "center", marginTop: "4rem" }}>
+          <h2 style={{ color: "#b91c1c" }}>Acesso negado</h2>
+          <p style={{ color: "#475569" }}>
+            Sua sessão expirou ou você não tem permissão para acessar esta página.
+          </p>
+          <a
+            href="https://aluno.helloyotta.com"
+            style={{
+              display: "inline-block",
+              marginTop: "1rem",
+              padding: "0.6rem 1.2rem",
+              background: "#ff8c1a",
+              color: "#1f2937",
+              borderRadius: "10px",
+              fontWeight: 700,
+              textDecoration: "none",
+            }}
+          >
+            Voltar ao helloyotta
+          </a>
+        </div>
+      )}
+      {/* ─────────────────────────────────────────────────────────────── */}
+
+      {authStatus === "authorized" && (
+        <>
+          <h1>hyScratch MVP</h1>
+          {authStudent?.studentName && (
+            <p style={{ color: "#475569" }}>Olá, <strong>{authStudent.studentName}</strong>!</p>
+          )}
+          <p>Desafio 01: abra o editor para iniciar a atividade no Scratch.</p>
 
       <section
         style={{
@@ -515,6 +675,8 @@ export default function App() {
         respostaEsperada={24}
         onLog={logFrontend}
       />
+        </>
+      )}
     </main>
   );
 }

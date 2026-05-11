@@ -30,7 +30,7 @@ import {
 import {setPlatform} from '../reducers/platform';
 import {setDynamicAssets} from '../reducers/dynamic-assets';
 import {hideBlockHint} from '../reducers/block-hint';
-import {loadActivity} from '../reducers/activity-actions';
+import {loadActivity, advanceActivityStep} from '../reducers/activity-actions';
 import {closeActivityModal, setActivityModalSlide} from '../reducers/activity-modal';
 import {
     ADVANCE_STEP,
@@ -245,7 +245,7 @@ const mapDispatchToProps = dispatch => ({
     onLoadActivity: activityId => dispatch(loadActivity(activityId)), // TODO: remover após validação
     onCloseActivityModal: () => dispatch(closeActivityModal()),
     onSetActivityModalSlide: slide => dispatch(setActivityModalSlide(slide)),
-    onAdvanceActivityStep: () => dispatch({type: ADVANCE_STEP}),
+    onAdvanceActivityStep: () => dispatch(advanceActivityStep()),
     onRequestCaptureBlockPreviews: () => dispatch({type: REQUEST_CAPTURE_PREVIEWS})
 });
 
