@@ -265,6 +265,66 @@
           "label": "adicione 25 ao efeito [cor]"
         }
       ]
+    },
+    {
+      "stepId": 11,
+      "successMessage": "Incrível! Você usou a caneta do Scratch para desenhar! Continue explorando!",
+      "nextStepButton": false,
+      "videoUrl": null,
+      "instructions": "Agora vamos usar a extensão Caneta! Adicione os blocos de caneta para desenhar um quadrado: abaixe a caneta, mova 100 passos, gire 90 graus e repita isso 4 vezes.",
+      "allowedCategories": [
+        "events",
+        "control",
+        "motion",
+        "pen"
+      ],
+      "allowedOpcodes": [
+        "event_whenflagclicked",
+        "control_repeat",
+        "motion_movesteps",
+        "motion_turnright",
+        "pen_penDown",
+        "pen_penUp",
+        "pen_clear",
+        "pen_setPenColorToColor",
+        "pen_setPenSizeTo"
+      ],
+      "requiredOpcodes": [
+        "event_whenflagclicked",
+        "control_repeat",
+        "motion_movesteps",
+        "pen_penDown"
+      ],
+      "targetSpriteId": "Gato",
+      "requiredAddSprites": [],
+      "requiredRemoveSprites": [],
+      "minSpriteCount": 1,
+      "previewBlocks": [
+        {
+          "opcode": "pen_clear",
+          "label": "apagar tudo"
+        },
+        {
+          "opcode": "pen_penDown",
+          "label": "caneta abaixar"
+        },
+        {
+          "opcode": "pen_penUp",
+          "label": "caneta levantar"
+        },
+        {
+          "opcode": "motion_movesteps",
+          "label": "mova 10 passos"
+        },
+        {
+          "opcode": "motion_turnright",
+          "label": "gire ↻ 90 graus"
+        },
+        {
+          "opcode": "control_repeat",
+          "label": "repita 4"
+        }
+      ]
     }
   ]
 }
