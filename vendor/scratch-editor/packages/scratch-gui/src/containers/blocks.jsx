@@ -255,6 +255,23 @@ class Blocks extends React.Component {
             // the toolbox re-renders (see updateToolbox). No separate timeout needed.
         }
         if (this.props.currentStep !== prevProps.currentStep) {
+            // Auto-load extension categories required by the new step so the
+            // student does not have to open the Extensions menu manually.
+            const step = this.props.currentStep;
+            if (step && Array.isArray(step.allowedCategories)) {
+                const CORE_CATEGORIES = new Set([
+                    'motion', 'looks', 'sound', 'events', 'control',
+                    'sensing', 'operators', 'variables', 'myBlocks'
+                ]);
+                step.allowedCategories.forEach(catId => {
+                    if (!CORE_CATEGORIES.has(catId) &&
+                        !this.props.vm.extensionManager.isExtensionLoaded(catId)) {
+                        this.props.vm.extensionManager.loadExtensionURL(catId);
+                        // handleExtensionAdded fires automatically when the extension
+                        // loads, which updates the toolbox with the new category.
+                    }
+                });
+            }
             this.withToolboxUpdates(() => {
                 this.selectDefaultToolboxCategory();
             });
