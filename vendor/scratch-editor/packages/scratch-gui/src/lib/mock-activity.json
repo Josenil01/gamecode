@@ -4,38 +4,57 @@
   "steps": [
     {
       "stepId": 1,
+      "nextStepButton": true,
       "videoUrl": "https://www.youtube.com/watch?v=s-tPZ0gHe50",
       "instructions": "Chegou a hora de dar vida às letras! No Scratch, cada letra do teu nome será um ator com superpoderes independentes. Prepara-te para uma explosão de cores , giros  e efeitos especiais!",
-      "successMessage": "Muito bem! Você completou esta etapa!",
-      "nextStepButton": true,
       "allowedCategories": [],
       "allowedOpcodes": [],
       "requiredOpcodes": [],
       "targetSpriteId": "Gato",
+      "requiredAddSprites": [],
+      "requiredRemoveSprites": [],
+      "minSpriteCount": 1,
       "previewBlocks": []
     },
     {
       "stepId": 2,
+      "nextStepButton": false,
       "videoUrl": null,
-      "successMessage": "Excelente! Sua primeira letra está pronta!",
       "instructions": "Começe removendo o gato!\nColoque  a primeira letra do seu nome!",
       "allowedCategories": [],
       "allowedOpcodes": [],
       "requiredOpcodes": [],
-      "requiredRemoveSprites": ["Gato"],
-      "minSpriteCount": 1,
       "targetSpriteId": "Gato",
+      "requiredAddSprites": [],
+      "requiredRemoveSprites": [
+        "Gato"
+      ],
+      "minSpriteCount": 1,
       "previewBlocks": []
     },
     {
       "stepId": 3,
+      "nextStepButton": true,
+      "videoUrl": "https://youtu.be/U6f7YIMvgRo",
+      "instructions": "Queremos que a letra dê um giro completo (360 graus) de forma suave quando a bandeira for clicada. Para isso faça o calculo 360/15, para descobrir quantas vezes o comando repita precisa ser executado.",
+      "allowedCategories": [],
+      "allowedOpcodes": [],
+      "requiredOpcodes": [],
+      "targetSpriteId": "Gato",
+      "requiredAddSprites": [],
+      "requiredRemoveSprites": [],
+      "minSpriteCount": 1,
+      "previewBlocks": []
+    },
+    {
+      "stepId": 4,
+      "nextStepButton": false,
       "videoUrl": null,
-      "successMessage": "Parabéns! A rotação ficou perfeita!",
-      "instructions": "Queremos que a letra dê um giro completo (360 graus) de forma suave quando a bandeira for clicada. Para isso faça o calculo 360/15, para descobrir quantas vezes o comando repita precisa ser executado.   Nessa etapa você vai precisar dos seguintes blocos. ",
+      "instructions": "Nessa etapa você vai precisar dos seguintes blocos. ",
       "allowedCategories": [
-        "motion",
         "events",
-        "control"
+        "control",
+        "motion"
       ],
       "allowedOpcodes": [
         "event_whenflagclicked",
@@ -48,6 +67,9 @@
         "motion_turnright"
       ],
       "targetSpriteId": "Gato",
+      "requiredAddSprites": [],
+      "requiredRemoveSprites": [],
+      "minSpriteCount": 1,
       "previewBlocks": [
         {
           "opcode": "event_whenflagclicked",
@@ -64,15 +86,65 @@
       ]
     },
     {
-      "stepId": 4,
-      "successMessage": "Incrível! Você concluiu toda a atividade!",
+      "stepId": 5,
+      "nextStepButton": false,
       "videoUrl": null,
-      "instructions": "Agora adicione a segunda letra do seu nome. A letra deve crescer assustadoramente quando bandeira for clicada  e voltar ao normal logo a seguir e repetir esse comportamento infinitamente.  ",
+      "instructions": "Agora adicione a segunda letra do seu nome. ",
       "allowedCategories": [
+        "events",
+        "control",
+        "motion"
+      ],
+      "allowedOpcodes": [
+        "event_whenflagclicked",
+        "control_repeat",
+        "motion_turnright"
+      ],
+      "requiredOpcodes": [],
+      "targetSpriteId": "Gato",
+      "requiredAddSprites": [],
+      "requiredRemoveSprites": [],
+      "minSpriteCount": 2,
+      "previewBlocks": []
+    },
+    {
+      "stepId": 6,
+      "nextStepButton": true,
+      "videoUrl": "https://youtu.be/lo-W0Pm_9bg",
+      "instructions": " A letra deve crescer em 120 % quando bandeira for clicada, após 1 segundo  voltar ao tamanho normal logo a seguir e repetir esse comportamento infinitamente.",
+      "allowedCategories": [
+        "events",
+        "control",
+        "motion"
+      ],
+      "allowedOpcodes": [
+        "event_whenflagclicked",
+        "control_repeat",
+        "motion_turnright"
+      ],
+      "requiredOpcodes": [],
+      "targetSpriteId": "Gato",
+      "requiredAddSprites": [],
+      "requiredRemoveSprites": [],
+      "minSpriteCount": 2,
+      "previewBlocks": []
+    },
+    {
+      "stepId": 7,
+      "nextStepButton": false,
+      "videoUrl": null,
+      "instructions": "Nessa etapa você vai precisar dos seguintes blocos.",
+      "allowedCategories": [
+        "events",
+        "control",
+        "motion",
         "looks",
         "control"
       ],
       "allowedOpcodes": [
+        "event_whenflagclicked",
+        "control_repeat",
+        "motion_turnright",
         "looks_setsizeto",
         "control_wait",
         "control_forever"
@@ -83,6 +155,9 @@
         "control_forever"
       ],
       "targetSpriteId": "Gato",
+      "requiredAddSprites": [],
+      "requiredRemoveSprites": [],
+      "minSpriteCount": 1,
       "previewBlocks": [
         {
           "opcode": "looks_setsizeto",
@@ -95,6 +170,99 @@
         {
           "opcode": "control_forever",
           "label": "sempre"
+        }
+      ]
+    },
+    {
+      "stepId": 8,
+      "nextStepButton": false,
+      "videoUrl": null,
+      "instructions": "Agora adicione a terceira letra do seu nome. ",
+      "allowedCategories": [
+        "events",
+        "control",
+        "motion",
+        "looks",
+        "control"
+      ],
+      "allowedOpcodes": [
+        "event_whenflagclicked",
+        "control_repeat",
+        "motion_turnright",
+        "looks_setsizeto",
+        "control_wait",
+        "control_forever"
+      ],
+      "requiredOpcodes": [],
+      "targetSpriteId": "Gato",
+      "requiredAddSprites": [],
+      "requiredRemoveSprites": [],
+      "minSpriteCount": 2,
+      "previewBlocks": []
+    },
+    {
+      "stepId": 9,
+      "nextStepButton": true,
+      "videoUrl": "https://youtu.be/grOYmMoM8Ak",
+      "instructions": "Vamos criar um efeito visual para mudar a cor da letra automaticamente  a cada 1 segundo!",
+      "allowedCategories": [
+        "events",
+        "control",
+        "motion",
+        "looks",
+        "control"
+      ],
+      "allowedOpcodes": [
+        "event_whenflagclicked",
+        "control_repeat",
+        "motion_turnright",
+        "looks_setsizeto",
+        "control_wait",
+        "control_forever"
+      ],
+      "requiredOpcodes": [],
+      "targetSpriteId": "Gato",
+      "requiredAddSprites": [],
+      "requiredRemoveSprites": [],
+      "minSpriteCount": 3,
+      "previewBlocks": []
+    },
+    {
+      "stepId": 10,
+      "successMessage": "Parabéns! Você mandou muito bem nesta etapa! Agora vamos aos desafios para deixar a sua animação ainda mais incrível!",
+      "nextStepButton": false,
+      "videoUrl": null,
+      "instructions": "Nessa etapa você vai precisar desses blocos.",
+      "allowedCategories": [
+        "events",
+        "control",
+        "motion",
+        "looks",
+        "control"
+      ],
+      "allowedOpcodes": [
+        "event_whenflagclicked",
+        "control_repeat",
+        "motion_turnright",
+        "looks_setsizeto",
+        "control_wait",
+        "control_forever",
+        "looks_changeeffectby"
+      ],
+      "requiredOpcodes": [
+        "event_whenflagclicked",
+        "control_wait",
+        "control_forever",
+        "looks_changeeffectby"
+      ],
+      "targetSpriteId": "Gato",
+      "requiredAddSprites": [],
+      "requiredRemoveSprites": [],
+      "minSpriteCount": 1,
+      "previewBlocks": [
+        {
+          "opcode": "looks_changeeffectby",
+          "label": "adicione 25 ao efeito [cor]"
         }
       ]
     }
