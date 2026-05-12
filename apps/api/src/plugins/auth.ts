@@ -6,7 +6,7 @@ import type { FastifyRequest, FastifyReply } from "fastify";
  * Strategy: call the helloyotta introspection endpoint with the token.
  * The endpoint URL and shared secret are configured via environment variables:
  *   HELLOYOTTA_VERIFY_URL  — URL of the helloyotta token verification endpoint
- *   HELLOYOTTA_API_SECRET  — shared secret / API key sent as Authorization header
+ *   QUBIT_API_KEY          — shared secret / API key sent as Authorization header
  *
  * Expected helloyotta response shape:
  *   { ok: true, studentId: string, studentName: string }
@@ -20,7 +20,7 @@ export interface StudentInfo {
 
 export async function verifyHelloyottaToken(token: string): Promise<StudentInfo | null> {
   const verifyUrl = process.env.HELLOYOTTA_VERIFY_URL;
-  const apiSecret = process.env.HELLOYOTTA_API_SECRET;
+  const apiSecret = process.env.QUBIT_API_KEY;
 
   if (!verifyUrl) {
     throw new Error("HELLOYOTTA_VERIFY_URL nao configurado.");
