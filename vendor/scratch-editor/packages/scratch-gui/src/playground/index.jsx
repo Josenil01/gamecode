@@ -6,10 +6,12 @@ import 'intl'; // For Safari 9
 
 import React from 'react';
 import ReactDomClient from 'react-dom/client';
+import ReactDOM from 'react-dom';
 
 import AppStateHOC from '../lib/app-state-hoc.jsx';
 import BrowserModalComponent from '../components/browser-modal/browser-modal.jsx';
 import supportedBrowser from '../lib/supported-browser';
+import AuthGate from './auth-gate.jsx';
 
 import styles from './index.css';
 
@@ -18,9 +20,14 @@ appTarget.className = styles.app;
 document.body.appendChild(appTarget);
 
 if (supportedBrowser()) {
-    // require needed here to avoid importing unsupported browser-crashing code
-    // at the top level
-    require('./render-gui.jsx').default(appTarget);
+    // Show auth gate first; on success unmount it and render the editor.
+    // require() is deferred here to avoid importing VM code in unsupported browsers.
+    const handleAuthorized = () => {
+        ReactDOM.unmountComponentAtNode(appTarget);
+        require('./render-gui.jsx').default(appTarget);
+    };
+    // eslint-disable-next-line react/jsx-no-bind
+    ReactDOM.render(<AuthGate onAuthorized={handleAuthorized} />, appTarget);
 
 } else {
     BrowserModalComponent.setAppElement(appTarget);
