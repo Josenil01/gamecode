@@ -87,7 +87,9 @@ function Checking () {
     );
 }
 
-const API_BASE = process.env.ACTIVITY_API_URL;
+const API_BASE = (typeof window !== 'undefined' && window.__HYSCRATCH_CONFIG?.apiUrl)
+    ?? process.env.ACTIVITY_API_URL
+    ?? 'https://aluno.helloyotta.com';
 
 /**
  * Auth gate shown before the Scratch editor.
@@ -103,7 +105,13 @@ export default function AuthGate ({onAuthorized}) {
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
-        const token = params.get('token');
+        let token = params.get('token');
+
+        // Fallback: also check #token= in the hash (some platforms deliver via fragment)
+        if (!token) {
+            const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+            token = hashParams.get('token');
+        }
 
         if (!token) {
             setStatus('no-token');
@@ -111,7 +119,7 @@ export default function AuthGate ({onAuthorized}) {
         }
 
         // Remove token from URL bar (avoid sharing / history leaks)
-        const clean = window.location.pathname + window.location.hash;
+        const clean = window.location.pathname;
         window.history.replaceState({}, '', clean);
 
         fetch(`${API_BASE}/auth/verify`, {
