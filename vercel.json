@@ -3,10 +3,6 @@
   "buildCommand": "",
   "installCommand": "",
   "rewrites": [
-    {
-      "source": "/api/auth/verify-token",
-      "destination": "https://aluno.helloyotta.com/api/auth/verify-token"
-    },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
