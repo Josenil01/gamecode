@@ -91,8 +91,9 @@ const API_BASE = (typeof window !== 'undefined' && window.__HYSCRATCH_CONFIG?.ap
     ?? process.env.ACTIVITY_API_URL
     ?? 'https://aluno.helloyotta.com';
 
+// Default is the same-origin serverless proxy (no CORS, no secret exposed in browser)
 const VERIFY_URL = (typeof window !== 'undefined' && window.__HYSCRATCH_CONFIG?.verifyUrl)
-    ?? `${API_BASE}/auth/verify`;
+    ?? '/api/auth/verify-token';
 
 /**
  * Auth gate shown before the Scratch editor.
