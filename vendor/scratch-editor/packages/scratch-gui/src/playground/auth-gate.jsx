@@ -91,6 +91,9 @@ const API_BASE = (typeof window !== 'undefined' && window.__HYSCRATCH_CONFIG?.ap
     ?? process.env.ACTIVITY_API_URL
     ?? 'https://aluno.helloyotta.com';
 
+const VERIFY_URL = (typeof window !== 'undefined' && window.__HYSCRATCH_CONFIG?.verifyUrl)
+    ?? `${API_BASE}/auth/verify`;
+
 /**
  * Auth gate shown before the Scratch editor.
  * - No ?token= in URL   → "Ops! Você não fez o login."
@@ -122,7 +125,7 @@ export default function AuthGate ({onAuthorized}) {
         const clean = window.location.pathname;
         window.history.replaceState({}, '', clean);
 
-        fetch(`${API_BASE}/auth/verify`, {
+        fetch(VERIFY_URL, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({token})
